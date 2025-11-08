@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ArrowLeftRight, PieChart, FolderOpen, Settings } from 'lucide-react';
+import { Home, Wallet, PieChart, FolderOpen, Settings } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Home' },
-  { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { href: '/accounts', icon: Wallet, label: 'Accounts' },
   { href: '/budgets', icon: PieChart, label: 'Budgets' },
   { href: '/categories', icon: FolderOpen, label: 'Categories' },
   { href: '/settings', icon: Settings, label: 'Settings' },

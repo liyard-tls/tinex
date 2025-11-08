@@ -1,9 +1,13 @@
+import { Currency } from './account';
+
 export type TransactionType = 'income' | 'expense' | 'transfer';
 
 export interface Transaction {
   id: string;
   userId: string;
+  accountId: string; // Reference to account
   amount: number;
+  currency: Currency; // Currency from the account
   type: TransactionType;
   categoryId: string;
   description: string;
@@ -18,6 +22,7 @@ export interface Transaction {
 }
 
 export interface CreateTransactionInput {
+  accountId: string;
   amount: number;
   type: TransactionType;
   categoryId: string;

@@ -4,3 +4,4 @@ export * from './category';
 export * from './budget';
 export * from './import-source';
 export * from './user';
+export * from './account';

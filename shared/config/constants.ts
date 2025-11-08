@@ -22,6 +22,7 @@ export const FIREBASE_COLLECTIONS = {
   BUDGETS: 'budgets',
   IMPORT_SOURCES: 'importSources',
   IMPORT_JOBS: 'importJobs',
+  ACCOUNTS: 'accounts',
 } as const;
 
 export const DATE_FORMATS = {

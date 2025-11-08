@@ -14,7 +14,7 @@ import { Plus, Wallet, Trash2 } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account, CreateAccountInput, CURRENCIES } from '@/core/models';
 
-export default function SettingsPage() {
+export default function AccountsPage() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -97,112 +97,113 @@ export default function SettingsPage() {
     return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
   };
 
+  const getTotalBalance = () => {
+    return accounts.reduce((sum, acc) => sum + acc.balance, 0);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-4 py-3">
-          <h1 className="text-xl font-bold">Settings</h1>
+          <h1 className="text-xl font-bold">Accounts</h1>
+          <p className="text-xs text-muted-foreground">Manage your accounts</p>
         </div>
       </header>
 
       <main className="px-4 py-4 space-y-4">
-        {/* Accounts Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Accounts</CardTitle>
-                <CardDescription>Manage your accounts and balances</CardDescription>
-              </div>
+        {/* Total Balance Summary */}
+        {accounts.length > 0 && (
+          <Card className="bg-gradient-to-br from-primary/20 to-primary/5">
+            <CardHeader>
+              <CardDescription>Total Balance</CardDescription>
+              <CardTitle className="text-3xl">${getTotalBalance().toFixed(2)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Across {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {accounts.length === 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>No Accounts</CardTitle>
+              <CardDescription>Create your first account to start tracking finances</CardDescription>
+            </CardHeader>
+            <CardContent className="text-center py-8">
+              <Wallet className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
               <Button
-                variant="outline"
-                size="sm"
+                variant="default"
                 onClick={() => setShowAddAccount(true)}
               >
-                <Plus className="h-4 w-4 mr-1" />
-                Add
+                <Plus className="h-4 w-4 mr-2" />
+                Create Your First Account
               </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {accounts.length === 0 && (
-              <div className="text-center py-8">
-                <Wallet className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                <p className="text-sm text-muted-foreground">No accounts yet</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4"
-                  onClick={() => setShowAddAccount(true)}
-                >
-                  Create Your First Account
-                </Button>
-              </div>
-            )}
+            </CardContent>
+          </Card>
+        )}
 
+        {/* Accounts List */}
+        {accounts.length > 0 && (
+          <div className="space-y-3">
             {accounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between p-3 rounded-md border border-border bg-card"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm font-medium">
-                        {account.name}
-                        {account.isDefault && (
-                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary">
-                            Default
-                          </span>
+              <Card key={account.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                        <Wallet className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold truncate">{account.name}</h3>
+                          {account.isDefault && (
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary flex-shrink-0">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground capitalize">
+                          {account.type.replace('_', ' ')}
+                        </p>
+                        <p className="text-lg font-bold mt-2">
+                          {getCurrencySymbol(account.currency)} {account.balance.toFixed(2)}
+                        </p>
+                        {account.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{account.notes}</p>
                         )}
-                      </p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {account.type.replace('_', ' ')}
-                      </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 ml-2">
+                      {!account.isDefault && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => handleSetDefault(account.id)}
+                        >
+                          Set Default
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteAccount(account.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                  <p className="text-sm font-semibold mt-1 ml-6">
-                    {getCurrencySymbol(account.currency)} {account.balance.toFixed(2)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {!account.isDefault && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => handleSetDefault(account.id)}
-                    >
-                      Set Default
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    onClick={() => handleDeleteAccount(account.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
-          </CardContent>
-        </Card>
-
-        {/* Other Settings Placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Preferences</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Additional settings will be implemented here.
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </main>
 
       {/* Floating Action Button */}
