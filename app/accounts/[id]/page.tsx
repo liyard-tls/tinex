@@ -9,7 +9,7 @@ import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
-import { ArrowLeft, Wallet, Trash2, Edit, TrendingUp, TrendingDown } from 'lucide-react';
+import { ArrowLeft, Wallet, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { Account, Transaction, CURRENCIES } from '@/core/models';
