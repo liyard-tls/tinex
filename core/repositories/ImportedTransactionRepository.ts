@@ -1,6 +1,7 @@
 import {
   collection,
   addDoc,
+  deleteDoc,
   query,
   where,
   getDocs,
@@ -125,6 +126,22 @@ class ImportedTransactionRepository {
       await Promise.all(promises);
     } catch (error) {
       console.error('Error creating batch imported transactions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all imported transactions for a user
+   */
+  async deleteAllForUser(userId: string): Promise<void> {
+    try {
+      const q = query(collection(db, COLLECTION_NAME), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.error('Error deleting all imported transactions:', error);
       throw error;
     }
   }

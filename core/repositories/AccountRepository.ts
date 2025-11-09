@@ -142,6 +142,17 @@ export class AccountRepository {
   }
 
   /**
+   * Delete all accounts for a user
+   */
+  async deleteAllForUser(userId: string): Promise<void> {
+    const q = query(collection(db, this.collectionName), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+  }
+
+  /**
    * Get total balance across all accounts
    */
   async getTotalBalance(userId: string): Promise<number> {

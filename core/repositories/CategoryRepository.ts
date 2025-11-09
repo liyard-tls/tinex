@@ -104,6 +104,17 @@ export class CategoryRepository {
   }
 
   /**
+   * Delete all categories for a user
+   */
+  async deleteAllForUser(userId: string): Promise<void> {
+    const q = query(collection(db, this.collectionName), where('userId', '==', userId));
+    const snapshot = await getDocs(q);
+
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+  }
+
+  /**
    * Map Firestore data to Category model
    */
   private mapToCategory(id: string, data: any): Category {

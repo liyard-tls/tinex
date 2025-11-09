@@ -10,8 +10,12 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
-import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight, Upload } from 'lucide-react';
+import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight, Upload, AlertTriangle } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
+import { transactionRepository } from '@/core/repositories/TransactionRepository';
+import { categoryRepository } from '@/core/repositories/CategoryRepository';
+import { tagRepository } from '@/core/repositories/TagRepository';
+import { importedTransactionRepository } from '@/core/repositories/ImportedTransactionRepository';
 import { Account, CreateAccountInput, CURRENCIES } from '@/core/models';
 
 export default function SettingsPage() {
@@ -19,6 +23,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -77,6 +82,51 @@ export default function SettingsPage() {
       await loadAccounts(user.uid);
     } catch (error) {
       console.error('Failed to set default account:', error);
+    }
+  };
+
+  const handleClearAllData = async () => {
+    if (!user) return;
+
+    const confirmText = 'DELETE ALL DATA';
+    const userInput = prompt(
+      `⚠️ WARNING: This will permanently delete ALL your data including:\n\n` +
+      `• All transactions\n` +
+      `• All accounts\n` +
+      `• All categories\n` +
+      `• All tags\n` +
+      `• All import records\n\n` +
+      `This action CANNOT be undone!\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) {
+        alert('Deletion cancelled. Text did not match.');
+      }
+      return;
+    }
+
+    setClearing(true);
+    try {
+      // Delete all data in parallel for efficiency
+      await Promise.all([
+        transactionRepository.deleteAllForUser(user.uid),
+        accountRepository.deleteAllForUser(user.uid),
+        categoryRepository.deleteAllForUser(user.uid),
+        tagRepository.deleteAllForUser(user.uid),
+        importedTransactionRepository.deleteAllForUser(user.uid),
+      ]);
+
+      alert('All data has been successfully deleted.');
+
+      // Reload the page to refresh state
+      await loadAccounts(user.uid);
+    } catch (error) {
+      console.error('Failed to clear all data:', error);
+      alert('Failed to delete all data. Please try again or contact support.');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -246,14 +296,24 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Other Settings Placeholder */}
-        <Card>
+        {/* Danger Zone */}
+        <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle>Preferences</CardTitle>
+            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardDescription>Irreversible actions - proceed with caution</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Additional settings will be implemented here.
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleClearAllData}
+              disabled={clearing}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              {clearing ? 'Deleting All Data...' : 'Clear All Data'}
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2 text-center">
+              This will permanently delete all transactions, accounts, categories, tags, and import records
             </p>
           </CardContent>
         </Card>
