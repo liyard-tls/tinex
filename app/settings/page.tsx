@@ -10,7 +10,7 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
-import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight } from 'lucide-react';
+import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight, Upload } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account, CreateAccountInput, CURRENCIES } from '@/core/models';
 
@@ -224,6 +224,21 @@ export default function SettingsPage() {
                 <div className="text-left">
                   <p className="text-sm font-medium">Tags</p>
                   <p className="text-xs text-muted-foreground">Label transactions with custom tags</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              onClick={() => router.push('/import')}
+            >
+              <div className="flex items-center gap-2">
+                <Upload className="h-4 w-4" />
+                <div className="text-left">
+                  <p className="text-sm font-medium">Import Transactions</p>
+                  <p className="text-xs text-muted-foreground">Import from bank statements (PDF)</p>
                 </div>
               </div>
               <ChevronRight className="h-4 w-4" />

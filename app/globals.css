@@ -67,3 +67,7 @@
     display: none;
   }
 }
+
+.bg-card{ 
+  background-color: black !important;
+}
