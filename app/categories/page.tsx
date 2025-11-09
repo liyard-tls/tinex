@@ -1,31 +1,425 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
+import { Card, CardContent } from '@/shared/components/ui/Card';
+import { Button } from '@/shared/components/ui';
+import Modal from '@/shared/components/ui/Modal';
+import FAB from '@/shared/components/ui/FAB';
+import {
+  Plus,
+  Trash2,
+  Edit,
+  DollarSign,
+  Briefcase,
+  TrendingUp,
+  Utensils,
+  ShoppingBag,
+  Car,
+  FileText,
+  Film,
+  Heart,
+  BookOpen,
+  MoreHorizontal,
+  Home,
+  Smartphone,
+  Coffee,
+  Gift,
+} from 'lucide-react';
+import { categoryRepository } from '@/core/repositories/CategoryRepository';
+import { Category, CreateCategoryInput, CategoryType, DEFAULT_CATEGORIES } from '@/core/models';
+
+// Icon mapping
+const ICONS = {
+  DollarSign,
+  Briefcase,
+  TrendingUp,
+  Plus,
+  Utensils,
+  ShoppingBag,
+  Car,
+  FileText,
+  Film,
+  Heart,
+  BookOpen,
+  MoreHorizontal,
+  Home,
+  Smartphone,
+  Coffee,
+  Gift,
+};
+
+const ICON_OPTIONS = Object.keys(ICONS);
+
+const CATEGORY_COLORS = [
+  '#ef4444', // red
+  '#f59e0b', // orange
+  '#eab308', // yellow
+  '#22c55e', // green
+  '#10b981', // emerald
+  '#14b8a6', // teal
+  '#06b6d4', // cyan
+  '#3b82f6', // blue
+  '#6366f1', // indigo
+  '#8b5cf6', // violet
+  '#a855f7', // purple
+  '#ec4899', // pink
+  '#6b7280', // gray
+];
 
 export default function CategoriesPage() {
+  const [user, setUser] = useState<{ uid: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser({ uid: currentUser.uid });
+        await loadCategories(currentUser.uid);
+      } else {
+        router.push('/auth');
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router]);
+
+  const loadCategories = async (userId: string) => {
+    try {
+      const userCategories = await categoryRepository.getByUserId(userId);
+      setCategories(userCategories);
+
+      // Initialize default categories if none exist
+      if (userCategories.length === 0) {
+        await initializeDefaultCategories(userId);
+      }
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  const initializeDefaultCategories = async (userId: string) => {
+    try {
+      for (const category of DEFAULT_CATEGORIES) {
+        await categoryRepository.create(userId, {
+          name: category.name,
+          type: category.type,
+          icon: category.icon,
+          color: category.color,
+        });
+      }
+      await loadCategories(userId);
+    } catch (error) {
+      console.error('Failed to initialize categories:', error);
+    }
+  };
+
+  const handleAddCategory = async (data: CreateCategoryInput) => {
+    if (!user) return;
+
+    try {
+      await categoryRepository.create(user.uid, data);
+      await loadCategories(user.uid);
+      setShowAddCategory(false);
+    } catch (error) {
+      console.error('Failed to add category:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdateCategory = async (data: CreateCategoryInput) => {
+    if (!user || !editingCategory) return;
+
+    try {
+      await categoryRepository.update({ id: editingCategory.id, ...data });
+      await loadCategories(user.uid);
+      setEditingCategory(null);
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!user) return;
+    if (!confirm('Are you sure you want to delete this category?')) return;
+
+    try {
+      await categoryRepository.delete(categoryId);
+      await loadCategories(user.uid);
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const incomeCategories = categories.filter((c) => c.type === 'income');
+  const expenseCategories = categories.filter((c) => c.type === 'expense');
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-4 py-3">
           <h1 className="text-xl font-bold">Categories</h1>
+          <p className="text-xs text-muted-foreground">Organize your transactions</p>
         </div>
       </header>
 
-      <main className="px-4 py-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Coming Soon</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Category management features will be implemented here.
-            </p>
-          </CardContent>
-        </Card>
+      <main className="px-4 py-4 space-y-6">
+        {/* Income Categories */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-success">Income</h2>
+          <div className="grid gap-2">
+            {incomeCategories.map((category) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                onEdit={() => setEditingCategory(category)}
+                onDelete={() => handleDeleteCategory(category.id)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Expense Categories */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-destructive">Expenses</h2>
+          <div className="grid gap-2">
+            {expenseCategories.map((category) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                onEdit={() => setEditingCategory(category)}
+                onDelete={() => handleDeleteCategory(category.id)}
+              />
+            ))}
+          </div>
+        </div>
       </main>
+
+      <FAB className="bottom-24 right-4" onClick={() => setShowAddCategory(true)}>
+        <Plus className="h-6 w-6" />
+      </FAB>
+
+      <Modal
+        isOpen={showAddCategory}
+        onClose={() => setShowAddCategory(false)}
+        title="Create Category"
+      >
+        <CategoryForm
+          onSubmit={handleAddCategory}
+          onCancel={() => setShowAddCategory(false)}
+        />
+      </Modal>
+
+      <Modal
+        isOpen={!!editingCategory}
+        onClose={() => setEditingCategory(null)}
+        title="Edit Category"
+      >
+        {editingCategory && (
+          <CategoryForm
+            initialData={editingCategory}
+            onSubmit={handleUpdateCategory}
+            onCancel={() => setEditingCategory(null)}
+          />
+        )}
+      </Modal>
 
       <BottomNav />
     </div>
+  );
+}
+
+function CategoryCard({
+  category,
+  onEdit,
+  onDelete,
+}: {
+  category: Category;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const IconComponent = ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal;
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 flex-1">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: `${category.color}20` }}
+            >
+              <IconComponent className="h-5 w-5" style={{ color: category.color }} />
+            </div>
+            <div>
+              <p className="text-sm font-medium">{category.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{category.type}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={onEdit}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            {!category.isDefault && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                onClick={onDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CategoryForm({
+  initialData,
+  onSubmit,
+  onCancel,
+}: {
+  initialData?: Category;
+  onSubmit: (data: CreateCategoryInput) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(initialData?.name || '');
+  const [type, setType] = useState<CategoryType>(initialData?.type || 'expense');
+  const [icon, setIcon] = useState(initialData?.icon || 'MoreHorizontal');
+  const [color, setColor] = useState(initialData?.color || CATEGORY_COLORS[0]);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    setLoading(true);
+    try {
+      await onSubmit({ name: name.trim(), type, icon, color });
+      setName('');
+      setIcon('MoreHorizontal');
+      setColor(CATEGORY_COLORS[0]);
+    } catch (error) {
+      console.error('Failed to save category:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-2">Category Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+          placeholder="Enter category name"
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2">Type</label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={type === 'income' ? 'default' : 'outline'}
+            className="flex-1"
+            onClick={() => setType('income')}
+          >
+            Income
+          </Button>
+          <Button
+            type="button"
+            variant={type === 'expense' ? 'default' : 'outline'}
+            className="flex-1"
+            onClick={() => setType('expense')}
+          >
+            Expense
+          </Button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2">Icon</label>
+        <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded-md">
+          {ICON_OPTIONS.map((iconName) => {
+            const IconComp = ICONS[iconName as keyof typeof ICONS];
+            return (
+              <button
+                key={iconName}
+                type="button"
+                onClick={() => setIcon(iconName)}
+                className={`p-2 rounded-md hover:bg-muted transition-colors ${
+                  icon === iconName ? 'bg-primary text-primary-foreground' : ''
+                }`}
+              >
+                <IconComp className="h-5 w-5 mx-auto" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2">Color</label>
+        <div className="grid grid-cols-7 gap-2">
+          {CATEGORY_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setColor(c)}
+              className={`w-10 h-10 rounded-md transition-all ${
+                color === c ? 'ring-2 ring-offset-2 ring-primary scale-110' : ''
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-2 pt-4">
+        <Button type="button" variant="outline" className="flex-1" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" className="flex-1" disabled={loading || !name.trim()}>
+          {loading ? 'Saving...' : initialData ? 'Update' : 'Create'}
+        </Button>
+      </div>
+    </form>
   );
 }

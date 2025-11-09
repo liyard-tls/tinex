@@ -23,6 +23,7 @@ export const FIREBASE_COLLECTIONS = {
   IMPORT_SOURCES: 'importSources',
   IMPORT_JOBS: 'importJobs',
   ACCOUNTS: 'accounts',
+  TAGS: 'tags',
 } as const;
 
 export const DATE_FORMATS = {

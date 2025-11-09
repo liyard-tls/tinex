@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { Button } from '@/shared/components/ui';
 import Input from '@/shared/components/ui/Input';
-import { CreateTransactionInput, TransactionType, Account } from '@/core/models';
-import { DEFAULT_CATEGORIES } from '@/core/models/category';
+import { CreateTransactionInput, TransactionType, Account, Category, Tag } from '@/core/models';
+import { categoryRepository } from '@/core/repositories/CategoryRepository';
+import { tagRepository } from '@/core/repositories/TagRepository';
 import { CURRENCIES } from '@/core/models/account';
 import { cn } from '@/shared/utils/cn';
+import { X } from 'lucide-react';
 
 interface AddTransactionFormProps {
   onSubmit: (data: CreateTransactionInput, currency: string) => Promise<void>;
@@ -20,6 +24,9 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
   const [type, setType] = useState<TransactionType>('expense');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const {
     register,
@@ -27,7 +34,27 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
     formState: { errors },
     reset,
     setValue,
-  } = useForm<CreateTransactionInput>();
+  } = useForm<CreateTransactionInput & { time?: string }>();
+
+  // Load categories and tags
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          const [userCategories, userTags] = await Promise.all([
+            categoryRepository.getByUserId(currentUser.uid),
+            tagRepository.getByUserId(currentUser.uid),
+          ]);
+          setCategories(userCategories);
+          setTags(userTags);
+        } catch (error) {
+          console.error('Failed to load categories and tags:', error);
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Set default account
   useEffect(() => {
@@ -47,20 +74,27 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
     }
   };
 
-  const handleFormSubmit = async (data: CreateTransactionInput) => {
+  const handleFormSubmit = async (data: any) => {
     setLoading(true);
     try {
+      // Combine date and time
+      const dateStr = data.date;
+      const timeStr = data.time || '00:00';
+      const dateTime = new Date(`${dateStr}T${timeStr}`);
+
       await onSubmit(
         {
           ...data,
           accountId: selectedAccountId,
           type,
           amount: Math.abs(Number(data.amount)),
-          date: new Date(data.date),
+          date: dateTime,
+          tags: selectedTags,
         },
         selectedCurrency
       );
       reset();
+      setSelectedTags([]);
     } catch (error) {
       console.error('Failed to add transaction:', error);
     } finally {
@@ -68,7 +102,13 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
     }
   };
 
-  const categories = DEFAULT_CATEGORIES.filter((cat) => cat.type === type);
+  const handleToggleTag = (tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const filteredCategories = categories.filter((cat) => cat.type === type);
   const currencySymbol = CURRENCIES.find((c) => c.value === selectedCurrency)?.symbol || '$';
 
   return (
@@ -165,8 +205,8 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
           disabled={loading}
         >
           <option value="">Select category</option>
-          {categories.map((cat, index) => (
-            <option key={index} value={cat.name}>
+          {filteredCategories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
               {cat.name}
             </option>
           ))}
@@ -176,16 +216,63 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         )}
       </div>
 
-      {/* Date */}
-      <div>
-        <label className="text-xs font-medium mb-1.5 block">Date</label>
-        <Input
-          type="date"
-          {...register('date', { required: 'Date is required' })}
-          defaultValue={new Date().toISOString().split('T')[0]}
-          error={errors.date?.message}
-          disabled={loading}
-        />
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div>
+          <label className="text-xs font-medium mb-1.5 block">Tags (Optional)</label>
+          <div className="flex flex-wrap gap-2 p-3 border border-input rounded-md bg-background min-h-[42px]">
+            {tags.map((tag) => {
+              const isSelected = selectedTags.includes(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => handleToggleTag(tag.id)}
+                  className={cn(
+                    'px-3 py-1 rounded-full text-xs font-medium transition-all flex items-center gap-1',
+                    isSelected ? 'ring-2 ring-offset-1 scale-105' : 'opacity-60 hover:opacity-100'
+                  )}
+                  style={{
+                    backgroundColor: isSelected ? tag.color : `${tag.color}40`,
+                    color: isSelected ? '#ffffff' : tag.color,
+                  }}
+                  disabled={loading}
+                >
+                  {tag.name}
+                  {isSelected && <X className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+          {selectedTags.length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selectedTags.length} tag{selectedTags.length !== 1 ? 's' : ''} selected
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Date and Time */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs font-medium mb-1.5 block">Date</label>
+          <Input
+            type="date"
+            {...register('date', { required: 'Date is required' })}
+            defaultValue={new Date().toISOString().split('T')[0]}
+            error={errors.date?.message}
+            disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium mb-1.5 block">Time</label>
+          <Input
+            type="time"
+            {...register('time')}
+            defaultValue={new Date().toTimeString().slice(0, 5)}
+            disabled={loading}
+          />
+        </div>
       </div>
 
       {/* Merchant (optional) */}

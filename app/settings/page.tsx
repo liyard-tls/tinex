@@ -10,7 +10,7 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
-import { Plus, Wallet, Trash2 } from 'lucide-react';
+import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account, CreateAccountInput, CURRENCIES } from '@/core/models';
 
@@ -189,6 +189,45 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* Data Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Data Management</CardTitle>
+            <CardDescription>Manage categories and tags for your transactions</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              onClick={() => router.push('/categories')}
+            >
+              <div className="flex items-center gap-2">
+                <FolderOpen className="h-4 w-4" />
+                <div className="text-left">
+                  <p className="text-sm font-medium">Categories</p>
+                  <p className="text-xs text-muted-foreground">Organize transactions by category</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              onClick={() => router.push('/tags')}
+            >
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                <div className="text-left">
+                  <p className="text-sm font-medium">Tags</p>
+                  <p className="text-xs text-muted-foreground">Label transactions with custom tags</p>
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </CardContent>
         </Card>
 
