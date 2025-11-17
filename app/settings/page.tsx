@@ -132,6 +132,46 @@ export default function SettingsPage() {
     setInstallPrompt(null);
   };
 
+  const handleDeleteTransactions = async () => {
+    if (!user) return;
+
+    const confirmText = 'DELETE TRANSACTIONS';
+    const userInput = prompt(
+      `⚠️ WARNING: This will permanently delete ALL transactions:\n\n` +
+      `• All transactions\n` +
+      `• All import records\n\n` +
+      `Categories, tags, and accounts will NOT be deleted.\n\n` +
+      `This action CANNOT be undone!\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) {
+        alert('Deletion cancelled. Text did not match.');
+      }
+      return;
+    }
+
+    setClearing(true);
+    try {
+      // Delete transactions and import records
+      await Promise.all([
+        transactionRepository.deleteAllForUser(user.uid),
+        importedTransactionRepository.deleteAllForUser(user.uid),
+      ]);
+
+      alert('All transactions have been successfully deleted.');
+
+      // Reload accounts to show updated balances
+      await loadAccounts(user.uid);
+    } catch (error) {
+      console.error('Failed to delete transactions:', error);
+      alert('Failed to delete transactions. Please try again or contact support.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const handleClearAllData = async () => {
     if (!user) return;
 
@@ -392,19 +432,36 @@ export default function SettingsPage() {
             <CardTitle className="text-destructive">Danger Zone</CardTitle>
             <CardDescription>Irreversible actions - proceed with caution</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleClearAllData}
-              disabled={clearing}
-            >
-              <AlertTriangle className="h-4 w-4 mr-2" />
-              {clearing ? 'Deleting All Data...' : 'Clear All Data'}
-            </Button>
-            <p className="text-xs text-muted-foreground mt-2 text-center">
-              This will permanently delete all transactions, accounts, categories, tags, and import records
-            </p>
+          <CardContent className="space-y-3">
+            <div>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleDeleteTransactions}
+                disabled={clearing}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {clearing ? 'Deleting...' : 'Delete All Transactions'}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Deletes all transactions and import records. Categories, tags, and accounts remain.
+              </p>
+            </div>
+
+            <div>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleClearAllData}
+                disabled={clearing}
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                {clearing ? 'Deleting All Data...' : 'Clear All Data'}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                Permanently deletes ALL data including transactions, accounts, categories, tags, and import records
+              </p>
+            </div>
           </CardContent>
         </Card>
       </main>

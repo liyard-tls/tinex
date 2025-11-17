@@ -1,3 +1,5 @@
+import { formatDateForHash } from '../utils/dateHelpers';
+
 export interface ParsedTransaction {
   date: Date;
   description: string;
@@ -188,6 +190,7 @@ function parseTransactions(text: string): ParsedTransaction[] {
 /**
  * Create a unique hash for transaction duplicate detection
  * Hash combines: date + description + amount + currency
+ * IMPORTANT: Uses local date/time string (not UTC) to match exactly what's in the PDF
  */
 function createTransactionHash(
   date: Date,
@@ -195,7 +198,8 @@ function createTransactionHash(
   amount: number,
   currency: string
 ): string {
-  const dateStr = date.toISOString();
+  // Format date as YYYY-MM-DD HH:MM (local time, matching PDF format)
+  const dateStr = formatDateForHash(date);
   const str = `${dateStr}-${description}-${amount}-${currency}`;
 
   // Simple hash function

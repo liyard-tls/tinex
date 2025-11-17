@@ -7,20 +7,11 @@ import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
-import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { ParsedTransaction, TrusteeStatementData } from '@/shared/services/trusteeParser';
-import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { importedTransactionRepository } from '@/core/repositories/ImportedTransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
-
-interface ImportResult {
-  total: number;
-  imported: number;
-  duplicates: number;
-  failed: number;
-}
 
 export default function ImportPage() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
@@ -30,7 +21,6 @@ export default function ImportPage() {
   const [importing, setImporting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string>('');
   const router = useRouter();
 
@@ -76,7 +66,6 @@ export default function ImportPage() {
       setFile(selectedFile);
       setError('');
       setParsedTransactions([]);
-      setImportResult(null);
     }
   };
 
@@ -131,85 +120,6 @@ export default function ImportPage() {
     }
   };
 
-  const handleImport = async () => {
-    if (!user || !selectedAccount || parsedTransactions.length === 0) return;
-
-    setImporting(true);
-    setError('');
-
-    try {
-      // Get existing hashes to check for duplicates
-      const existingHashes = await importedTransactionRepository.getImportedHashes(
-        user.uid,
-        'trustee'
-      );
-
-      let imported = 0;
-      let duplicates = 0;
-      let failed = 0;
-
-      // Import each transaction
-      for (const parsed of parsedTransactions) {
-        try {
-          // Check for duplicate
-          if (existingHashes.has(parsed.hash)) {
-            duplicates++;
-            continue;
-          }
-
-          // Create transaction (amount and type already parsed)
-          const transactionId = await transactionRepository.create(
-            user.uid,
-            {
-              accountId: selectedAccount,
-              type: parsed.type,
-              amount: parsed.amount,
-              description: parsed.description,
-              date: parsed.date,
-              merchantName: parsed.description,
-              categoryId: '', // User will assign later
-              tags: [],
-            },
-            parsed.currency
-          );
-
-          // Record import to prevent duplicates
-          await importedTransactionRepository.create({
-            userId: user.uid,
-            transactionId,
-            hash: parsed.hash,
-            source: 'trustee',
-            importDate: new Date(),
-          });
-
-          imported++;
-        } catch (err) {
-          console.error('Failed to import transaction:', err);
-          failed++;
-        }
-      }
-
-      setImportResult({
-        total: parsedTransactions.length,
-        imported,
-        duplicates,
-        failed,
-      });
-
-      setImporting(false);
-    } catch (err) {
-      console.error('Error importing transactions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to import transactions');
-      setImporting(false);
-    }
-  };
-
-  const handleReset = () => {
-    setFile(null);
-    setParsedTransactions([]);
-    setImportResult(null);
-    setError('');
-  };
 
   if (loading) {
     return (
@@ -288,7 +198,7 @@ export default function ImportPage() {
                 </label>
               </div>
 
-              {file && !parsedTransactions.length && !importResult && (
+              {file && !parsedTransactions.length && (
                 <Button
                   onClick={handleParseFile}
                   disabled={!selectedAccount || importing}
@@ -310,7 +220,7 @@ export default function ImportPage() {
         </Card>
 
         {/* Parsed Transactions Preview */}
-        {parsedTransactions.length > 0 && !importResult && (
+        {parsedTransactions.length > 0 && (
           <Card className="mb-4">
             <CardHeader>
               <CardTitle className="text-base">Preview</CardTitle>
@@ -343,75 +253,13 @@ export default function ImportPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  onClick={() => router.push(`/import/preview?count=${parsedTransactions.length}`)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Review & Edit
-                </Button>
-                <Button onClick={handleImport} disabled={importing} className="w-full">
-                  <Download className="h-4 w-4 mr-2" />
-                  {importing ? 'Importing...' : 'Import All'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Import Result */}
-        {importResult && (
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle className="text-base">Import Complete</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-sm">Total transactions</span>
-                  </div>
-                  <span className="font-semibold">{importResult.total}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-success/10 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-success" />
-                    <span className="text-sm">Imported</span>
-                  </div>
-                  <span className="font-semibold text-success">{importResult.imported}</span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-warning/10 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-5 w-5 text-warning" />
-                    <span className="text-sm">Duplicates skipped</span>
-                  </div>
-                  <span className="font-semibold text-warning">{importResult.duplicates}</span>
-                </div>
-
-                {importResult.failed > 0 && (
-                  <div className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-destructive" />
-                      <span className="text-sm">Failed</span>
-                    </div>
-                    <span className="font-semibold text-destructive">{importResult.failed}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-2 pt-2">
-                  <Button onClick={handleReset} variant="outline" className="flex-1">
-                    Import Another
-                  </Button>
-                  <Button onClick={() => router.push('/transactions')} className="flex-1">
-                    View Transactions
-                  </Button>
-                </div>
-              </div>
+              <Button
+                onClick={() => router.push(`/import/preview?count=${parsedTransactions.length}`)}
+                className="w-full"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Review & Import
+              </Button>
             </CardContent>
           </Card>
         )}
