@@ -80,27 +80,54 @@ Transactions store BOTH date AND time. The form has separate date and time input
 const dateTime = new Date(`${dateStr}T${timeStr}`);
 ```
 
-#### 2. Currency Conversion
+#### 2. PWA Support
+The app is a Progressive Web App with:
+- **Service Worker** (`public/sw.js`): Network-first caching strategy for offline support
+- **Manifest** (`public/manifest.json`): App metadata, icons, shortcuts
+- **Installation**: Handled via `beforeinstallprompt` event in components
+- **Viewport metadata**: Separated from Next.js metadata export (Next.js 14 requirement)
+
+```typescript
+// Next.js 14 pattern - viewport is separate export
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#0f172a",
+};
+
+export const metadata: Metadata = { ... };
+```
+
+**PWA Icon Requirements**:
+- Chrome requires separate icon entries for "purpose: any" and "purpose: maskable" (not combined)
+- SVG favicons supported for modern browsers
+
+#### 3. Currency Conversion
 - Uses `shared/services/currencyService.ts` for all currency operations
 - Exchange rates cached for 1 hour
 - Calls `/api/currency` endpoint (keeps API key server-side)
 - Has fallback rates if API fails
 - All conversions go through USD as intermediate currency
 
-#### 3. Bank Statement Import System
+#### 4. Bank Statement Import System
 
-**Architecture**:
-- PDF parsing happens **server-side** via API route (`/api/parse-pdf`)
-- Client uploads file to API, receives parsed transactions
-- Prevents large pdf-parse library from being included in client bundle
+**Two Parser Systems** (historical reasons):
 
-**Trustee PDF Parser** (`shared/services/trusteeParser.ts`):
-- Uses `pdf-parse` library with `require()` (CommonJS module, server-side only)
-- Parses date, time, description, amount (with sign), and currency
-- Creates unique hash for duplicate detection: `hash(date + description + amount + currency)`
-- Returns transactions with type already determined (negative amount = expense)
+1. **Legacy PDF Parser** (`shared/services/trusteeParser.ts`):
+   - Server-side only (uses `pdf-parse` CommonJS module)
+   - API route at `/api/parse-pdf`
+   - Specific to Trustee bank format
+   - Creates hash for duplicate detection
 
-**Import Flow** (`app/import/page.tsx`):
+2. **Modular Parser System** (`modules/parsers/`):
+   - Newer, more extensible architecture
+   - Registry pattern for dynamic parser registration
+   - Supports CSV (PapaParse), XLSX, PDF
+   - See `modules/parsers/core/ParserInterface.ts` for interface
+
+**Recommended for new parsers**: Use the modular system in `modules/parsers/`.
+
+**Legacy Trustee PDF Flow** (`app/import/page.tsx`):
 1. User selects account
 2. Uploads PDF file
 3. Client sends file to `/api/parse-pdf` endpoint
@@ -115,13 +142,19 @@ const dateTime = new Date(`${dateStr}T${timeStr}`);
 - Check `existingHashes.has(parsed.hash)` before importing
 - Store hash after successful import
 
-#### 4. Analytics Charts
+**CSV Parsing** (easiest to implement):
+- Use PapaParse library (already installed)
+- Client-side parsing, no API needed
+- Standardized format most banks export
+
+#### 5. Analytics Charts
 - Uses Recharts library (not custom SVG)
 - Components: `AreaChart`, `Line`, `XAxis`, `YAxis`, `Tooltip`, `ResponsiveContainer`
 - Custom tooltip component with TypeScript interface (not `any`)
 - Dynamic coloring based on positive/negative values
+- Week-based navigation with custom date picker
 
-#### 5. Firebase Collections
+#### 6. Firebase Collections
 All collection names defined in `shared/config/constants.ts`:
 ```typescript
 export const FIREBASE_COLLECTIONS = {
@@ -135,7 +168,7 @@ export const FIREBASE_COLLECTIONS = {
 
 Always use constants, never hardcode collection names.
 
-#### 6. Component Patterns
+#### 7. Component Patterns
 
 **Form Handling**:
 - Uses `react-hook-form` with TypeScript
@@ -151,6 +184,43 @@ const [showModal, setShowModal] = useState(false);
 </Modal>
 ```
 
+**Inline Editing Pattern**:
+```typescript
+const [editing, setEditing] = useState(false);
+const [newValue, setNewValue] = useState('');
+
+{editing ? (
+  <div className="flex items-center gap-2">
+    <Input value={newValue} onChange={(e) => setNewValue(e.target.value)} />
+    <Button onClick={handleSave}><Check /></Button>
+    <Button onClick={() => setEditing(false)}><X /></Button>
+  </div>
+) : (
+  <div onClick={() => setEditing(true)}>
+    <span>{currentValue}</span>
+    <Pencil className="h-4 w-4" />
+  </div>
+)}
+```
+
+**Side Panel Pattern** (for quick actions without full-page navigation):
+```typescript
+const [showPanel, setShowPanel] = useState(false);
+
+// Backdrop
+{showPanel && (
+  <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowPanel(false)} />
+)}
+
+// Sliding panel
+<div className={cn(
+  "fixed top-0 right-0 h-full w-80 bg-background z-50 transform transition-transform",
+  showPanel ? "translate-x-0" : "translate-x-full"
+)}>
+  {/* Panel content */}
+</div>
+```
+
 **Repository Usage in Components**:
 ```typescript
 // Always check for user before repository calls
@@ -164,6 +234,17 @@ try {
   console.error('Failed to...', error);
   // Optionally show error to user
 }
+```
+
+**Bulk Data Deletion**:
+```typescript
+// All repositories support deleteAllForUser
+await Promise.all([
+  transactionRepository.deleteAllForUser(userId),
+  accountRepository.deleteAllForUser(userId),
+  categoryRepository.deleteAllForUser(userId),
+  // etc.
+]);
 ```
 
 ### Common Pitfalls
@@ -182,6 +263,20 @@ try {
 4. **Repository method signatures**: Check the actual implementation before calling. TransactionRepository.create takes 3 arguments, not 1.
 
 5. **ESLint compliance**: Build fails on unused imports and `any` types. Always fix linting errors.
+
+6. **Default exports vs named exports**: Check how components are exported before importing:
+   ```typescript
+   // If component uses: export default Button
+   import Button from './Button';  // CORRECT
+   import { Button } from './Button';  // WRONG
+
+   // If component uses: export const Button = ...
+   import { Button } from './Button';  // CORRECT
+   ```
+
+7. **PWA manifest icons**: Don't combine purposes like `"purpose": "any maskable"` - Chrome rejects this. Use separate entries for each purpose.
+
+8. **Service Worker caching**: Only cache truly static assets (manifest.json, icons). Don't try to cache Next.js dynamic routes in the install event.
 
 ## Firebase Data Models
 
@@ -232,6 +327,27 @@ try {
 ## Adding New Features
 
 ### Adding a New Bank Parser
+
+**Option 1: Modular Parser System** (Recommended)
+
+1. Create parser in `modules/parsers/implementations/csv/` (or pdf/xlsx)
+2. Implement `BankParser` interface from `modules/parsers/core/ParserInterface.ts`:
+   ```typescript
+   export class MyBankParser implements BankParser {
+     readonly id = 'mybank-csv';
+     readonly name = 'My Bank CSV Parser';
+     readonly bankName = 'My Bank';
+     readonly supportedFormats = ['csv'];
+
+     async supports(file: File): Promise<boolean> { ... }
+     async parse(file: File): Promise<ParsedTransaction[]> { ... }
+     validate(transactions: ParsedTransaction[]): ValidationResult { ... }
+     getFormatDescription(): string { ... }
+   }
+   ```
+3. Register in `modules/parsers/index.ts`
+
+**Option 2: Legacy Parser** (simpler, but less maintainable)
 
 1. Create parser service in `shared/services/` (e.g., `monobankParser.ts`)
 2. Export interface matching:
