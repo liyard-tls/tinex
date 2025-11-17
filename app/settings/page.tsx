@@ -10,7 +10,7 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
-import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight, Upload, AlertTriangle } from 'lucide-react';
+import { Plus, Wallet, Trash2, Tag, FolderOpen, ChevronRight, Upload, AlertTriangle, Download, Smartphone } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
@@ -24,6 +24,8 @@ export default function SettingsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -39,6 +41,32 @@ export default function SettingsPage() {
 
     return () => unsubscribe();
   }, [router]);
+
+  // PWA Install event listener
+  useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstalled(true);
+    }
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      setInstallPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
   const loadAccounts = async (userId: string) => {
     try {
@@ -83,6 +111,25 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Failed to set default account:', error);
     }
+  };
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+
+    // Show the install prompt
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const promptEvent = installPrompt as any;
+    promptEvent.prompt();
+
+    // Wait for the user to respond
+    const { outcome } = await promptEvent.userChoice;
+
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+      setIsInstalled(true);
+    }
+
+    setInstallPrompt(null);
   };
 
   const handleClearAllData = async () => {
@@ -239,6 +286,49 @@ export default function SettingsPage() {
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+
+        {/* App Installation */}
+        <Card>
+          <CardHeader>
+            <CardTitle>App Installation</CardTitle>
+            <CardDescription>Install TineX as a standalone app on your device</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isInstalled ? (
+              <div className="flex items-center gap-2 text-green-500">
+                <Smartphone className="h-5 w-5" />
+                <span className="text-sm font-medium">App is installed</span>
+              </div>
+            ) : installPrompt ? (
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                onClick={handleInstallApp}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                <div className="text-left">
+                  <p className="text-sm font-medium">Install TineX App</p>
+                  <p className="text-xs text-muted-foreground">Add to home screen for quick access</p>
+                </div>
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Smartphone className="h-5 w-5" />
+                  <span className="text-sm">Install option not available</span>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-2">
+                  <p className="font-medium">To install manually:</p>
+                  <ul className="list-disc list-inside space-y-1 ml-2">
+                    <li><strong>Chrome:</strong> Menu (⋮) → &quot;Install app&quot; or &quot;Add to Home screen&quot;</li>
+                    <li><strong>Safari:</strong> Share button → &quot;Add to Home Screen&quot;</li>
+                    <li><strong>Edge:</strong> Menu (…) → &quot;Apps&quot; → &quot;Install this site as an app&quot;</li>
+                  </ul>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
