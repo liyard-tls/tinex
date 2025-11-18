@@ -129,12 +129,20 @@ function parseTransactions(text: string): ParsedTransaction[] {
           const [, dateStr, timeStr, descStart] = multiLineMatch;
 
           // Look ahead for amount and currency on next line(s)
+          // Increased from 3 to 10 lines to handle very long descriptions
           let fullDescription = descStart;
           let j = i + 1;
           let foundAmount = false;
 
-          while (j < lines.length && j < i + 3) {
+          while (j < lines.length && j < i + 10) {
             const nextLine = lines[j].trim();
+
+            // Stop if we hit another transaction or footer
+            if (nextLine.match(/^\d{4}\.\d{2}\.\d{2},\s*\d{2}:\d{2}/) ||
+                nextLine.includes('The document is electronically generated')) {
+              break;
+            }
+
             const amountMatch = nextLine.match(/^(.+?)\s+([-+]?\d+\.?\d*)\s+([A-Z]{3})$/);
 
             if (amountMatch) {
