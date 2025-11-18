@@ -8,10 +8,15 @@ import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
-import { ParsedTransaction, TrusteeStatementData } from '@/shared/services/trusteeParser';
+import { ParsedTransaction as TrusteeParsedTransaction, TrusteeStatementData } from '@/shared/services/trusteeParser';
+import { ParsedTransaction as MonobankParsedTransaction, parseMonobankCSV } from '@/shared/services/monobankParser';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
+
+// Unified interface
+type ParsedTransaction = TrusteeParsedTransaction | MonobankParsedTransaction;
+type BankType = 'trustee' | 'monobank';
 
 export default function ImportPage() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
@@ -20,6 +25,7 @@ export default function ImportPage() {
   const [selectedAccount, setSelectedAccount] = useState<string>('');
   const [importing, setImporting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [bankType, setBankType] = useState<BankType>('trustee');
   const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
   const [error, setError] = useState<string>('');
   const router = useRouter();
@@ -39,17 +45,36 @@ export default function ImportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  // Update account selection when bank type changes
+  useEffect(() => {
+    if (user) {
+      loadAccounts(user.uid);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankType]);
+
   const loadAccounts = async (userId: string) => {
     try {
       const userAccounts = await accountRepository.getByUserId(userId);
       setAccounts(userAccounts);
 
-      // Pre-select first EUR account if available
-      const eurAccount = userAccounts.find(acc => acc.currency === 'EUR');
-      if (eurAccount) {
-        setSelectedAccount(eurAccount.id);
-      } else if (userAccounts.length > 0) {
-        setSelectedAccount(userAccounts[0].id);
+      // Pre-select account based on bank type
+      if (bankType === 'monobank') {
+        // Pre-select UAH account for Monobank
+        const uahAccount = userAccounts.find(acc => acc.currency === 'UAH');
+        if (uahAccount) {
+          setSelectedAccount(uahAccount.id);
+        } else if (userAccounts.length > 0) {
+          setSelectedAccount(userAccounts[0].id);
+        }
+      } else {
+        // Pre-select EUR account for Trustee
+        const eurAccount = userAccounts.find(acc => acc.currency === 'EUR');
+        if (eurAccount) {
+          setSelectedAccount(eurAccount.id);
+        } else if (userAccounts.length > 0) {
+          setSelectedAccount(userAccounts[0].id);
+        }
       }
     } catch (error) {
       console.error('Failed to load accounts:', error);
@@ -59,8 +84,13 @@ export default function ImportPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (selectedFile.type !== 'application/pdf') {
-        setError('Please select a PDF file');
+      // Validate file type based on bank
+      if (bankType === 'trustee' && selectedFile.type !== 'application/pdf') {
+        setError('Please select a PDF file for Trustee bank');
+        return;
+      }
+      if (bankType === 'monobank' && !selectedFile.name.endsWith('.csv')) {
+        setError('Please select a CSV file for Monobank');
         return;
       }
       setFile(selectedFile);
@@ -76,29 +106,36 @@ export default function ImportPage() {
     setError('');
 
     try {
-      // Create form data with the file
-      const formData = new FormData();
-      formData.append('file', file);
+      let transactions: ParsedTransaction[];
 
-      // Call API to parse PDF (server-side)
-      const response = await fetch('/api/parse-pdf', {
-        method: 'POST',
-        body: formData,
-      });
+      if (bankType === 'monobank') {
+        // Parse CSV client-side
+        const statementData = await parseMonobankCSV(file);
+        transactions = statementData.transactions;
+      } else {
+        // Parse PDF server-side (Trustee)
+        const formData = new FormData();
+        formData.append('file', file);
 
-      const result = await response.json();
+        const response = await fetch('/api/parse-pdf', {
+          method: 'POST',
+          body: formData,
+        });
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to parse PDF');
+        const result = await response.json();
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to parse PDF');
+        }
+
+        const statementData: TrusteeStatementData = result.data;
+
+        // Convert date strings back to Date objects
+        transactions = statementData.transactions.map(txn => ({
+          ...txn,
+          date: new Date(txn.date),
+        }));
       }
-
-      const statementData: TrusteeStatementData = result.data;
-
-      // Convert date strings back to Date objects
-      const transactions = statementData.transactions.map(txn => ({
-        ...txn,
-        date: new Date(txn.date),
-      }));
 
       setParsedTransactions(transactions);
 
@@ -138,9 +175,57 @@ export default function ImportPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-2">Import Transactions</h1>
           <p className="text-sm text-muted-foreground">
-            Import transactions from Trustee bank statements (PDF format)
+            Import transactions from bank statements
           </p>
         </div>
+
+        {/* Bank Selection */}
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle className="text-base">Select Bank</CardTitle>
+            <CardDescription>Choose your bank to import from</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setBankType('trustee');
+                  setFile(null);
+                  setParsedTransactions([]);
+                  setError('');
+                  if (user) loadAccounts(user.uid);
+                }}
+                disabled={importing}
+                className={cn(
+                  'px-4 py-3 text-sm font-medium rounded-md transition-colors border-2',
+                  bankType === 'trustee'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                Trustee (PDF)
+              </button>
+              <button
+                onClick={() => {
+                  setBankType('monobank');
+                  setFile(null);
+                  setParsedTransactions([]);
+                  setError('');
+                  if (user) loadAccounts(user.uid);
+                }}
+                disabled={importing}
+                className={cn(
+                  'px-4 py-3 text-sm font-medium rounded-md transition-colors border-2',
+                  bankType === 'monobank'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                Monobank (CSV)
+              </button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Account Selection */}
         <Card className="mb-4">
@@ -169,7 +254,11 @@ export default function ImportPage() {
         <Card className="mb-4">
           <CardHeader>
             <CardTitle className="text-base">Upload Statement</CardTitle>
-            <CardDescription>Select a Trustee PDF statement file to import</CardDescription>
+            <CardDescription>
+              {bankType === 'trustee'
+                ? 'Select a Trustee PDF statement file to import'
+                : 'Select a Monobank CSV export file to import'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -185,12 +274,12 @@ export default function ImportPage() {
                 >
                   <Upload className="h-5 w-5" />
                   <span className="text-sm">
-                    {file ? file.name : 'Choose PDF file'}
+                    {file ? file.name : bankType === 'trustee' ? 'Choose PDF file' : 'Choose CSV file'}
                   </span>
                   <input
                     id="file-upload"
                     type="file"
-                    accept="application/pdf"
+                    accept={bankType === 'trustee' ? 'application/pdf' : '.csv'}
                     onChange={handleFileChange}
                     className="hidden"
                     disabled={importing}
@@ -271,13 +360,27 @@ export default function ImportPage() {
           </CardHeader>
           <CardContent>
             <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
+              <li>Select your bank (Trustee or Monobank)</li>
               <li>Select the account to import transactions into</li>
-              <li>Upload your Trustee bank statement PDF file</li>
+              <li>Upload your bank statement file ({bankType === 'trustee' ? 'PDF' : 'CSV'})</li>
               <li>Click "Parse File" to extract transactions</li>
-              <li>Review the preview and click "Import" to add transactions</li>
+              <li>Review the preview and click "Review & Import"</li>
               <li>Duplicate transactions will be automatically skipped</li>
-              <li>You can assign categories and tags to imported transactions later</li>
+              <li>Categories will be auto-detected based on previous transactions</li>
             </ol>
+            {bankType === 'monobank' && (
+              <div className="mt-4 p-3 bg-muted/50 rounded-md">
+                <p className="text-xs text-muted-foreground">
+                  <strong>How to export from Monobank:</strong>
+                  <br />
+                  1. Open Monobank app → Statement
+                  <br />
+                  2. Select period and account
+                  <br />
+                  3. Tap "Export" → Choose "CSV" format
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
