@@ -459,7 +459,7 @@ export default function ImportPreviewPage() {
 
                           <div
                             onClick={(e) => handleCategoryIconClick(e, txn)}
-                            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                            className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
                             style={{
                               backgroundColor: category ? `${category.color}20` : '#6b728020',
                             }}
@@ -594,7 +594,7 @@ export default function ImportPreviewPage() {
                         )}
                       >
                         <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: `${cat.color}20` }}
                         >
                           <CatIcon className="h-5 w-5" style={{ color: cat.color }} />

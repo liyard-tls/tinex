@@ -31,6 +31,8 @@ import {
   Coffee,
   Gift,
   Tag as TagIcon,
+  CreditCard,
+  PiggyBank,
 } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
@@ -39,7 +41,7 @@ import { Account, CreateAccountInput, CURRENCIES, Transaction, Category } from '
 import { formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 
-// Icon mapping for categories
+// Icon mapping for categories and accounts
 const ICONS = {
   DollarSign,
   Briefcase,
@@ -57,6 +59,9 @@ const ICONS = {
   Smartphone,
   Coffee,
   Gift,
+  Wallet,
+  CreditCard,
+  PiggyBank,
 };
 
 export default function AccountsPage() {
@@ -170,7 +175,13 @@ export default function AccountsPage() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {accounts.map((account) => (
+                {accounts.map((account) => {
+                  const IconComponent = account.icon
+                    ? ICONS[account.icon as keyof typeof ICONS] || Wallet
+                    : Wallet;
+                  const accountColor = account.color || '#6b7280';
+
+                  return (
                   <Link
                     key={account.id}
                     href={`/accounts/${account.id}`}
@@ -178,8 +189,11 @@ export default function AccountsPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                          <Wallet className="h-4 w-4 text-primary" />
+                        <div
+                          className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${accountColor}20` }}
+                        >
+                          <IconComponent className="h-4 w-4" style={{ color: accountColor }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -208,7 +222,8 @@ export default function AccountsPage() {
                       </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
                 {/* Add Account Button inside card */}
                 <button
                   onClick={() => setShowAddAccount(true)}
@@ -264,7 +279,7 @@ export default function AccountsPage() {
                             const IconComponent = ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal;
                             return (
                               <div
-                                className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
+                                className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
                                 style={{ backgroundColor: `${category.color}20` }}
                               >
                                 <IconComponent className="h-4 w-4" style={{ color: category.color }} />

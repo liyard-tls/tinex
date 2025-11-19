@@ -244,7 +244,7 @@ export default function TransactionsPage() {
                             {/* Category icon */}
                             <div
                               onClick={(e) => handleCategoryIconClick(e, txn)}
-                              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
                               style={{
                                 backgroundColor: category ? `${category.color}20` : '#6b728020',
                               }}
