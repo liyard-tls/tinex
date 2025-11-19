@@ -57,27 +57,20 @@ self.addEventListener('fetch', (event) => {
           const fileUrl = `/shared/${Date.now()}_${file.name}`;
           await cache.put(fileUrl, new Response(file));
           
-          // Notify the client/s
+          const redirectUrl = self.registration.scope + `import?shared_file=${encodeURIComponent(fileUrl)}`;
+
+          // Notify any open clients
           const clients = await self.clients.matchAll({ type: 'window' });
           for (const client of clients) {
             client.postMessage({
               type: 'FILE_SHARED',
               fileUrl: fileUrl,
-              fileName: file.name,
-              fileType: file.type
             });
           }
-
-          // If a client is open, focus it. Otherwise, open a new window.
-          if (clients.length > 0) {
-            await clients[0].focus();
-            // Redirect the focused client
-            return Response.redirect(clients[0].url.split('?')[0] + `?shared_file=${encodeURIComponent(fileUrl)}`, 303);
-          } else {
-            self.clients.openWindow(`/import/?shared_file=${encodeURIComponent(fileUrl)}`);
-          }
           
-          return Response.redirect('/import/', 303);
+          // Redirect the browser to the import page with the file param.
+          // This is more robust than trying to manage windows/focus.
+          return Response.redirect(redirectUrl, 303);
 
         } catch (error) {
           console.error('Share target error:', error);
