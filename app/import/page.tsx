@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Removed useSearchParams import
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
@@ -18,7 +18,11 @@ import { cn } from '@/shared/utils/cn';
 type ParsedTransaction = TrusteeParsedTransaction | MonobankParsedTransaction;
 type BankType = 'trustee' | 'monobank';
 
-export default function ImportPage() {
+export default function ImportPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   const [user, setUser] = useState<{ uid: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -29,7 +33,6 @@ export default function ImportPage() {
   const [parsedTransactions, setParsedTransactions] = useState<ParsedTransaction[]>([]);
   const [error, setError] = useState<string>('');
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -48,7 +51,7 @@ export default function ImportPage() {
 
   // Handle shared file
   useEffect(() => {
-    const sharedFileUrl = searchParams.get('shared_file');
+    const sharedFileUrl = searchParams.shared_file; // Access directly from prop
 
     const getFileFromCache = async (fileUrl: string) => {
       try {
@@ -77,7 +80,7 @@ export default function ImportPage() {
       }
     };
     
-    if (sharedFileUrl) {
+    if (sharedFileUrl && typeof sharedFileUrl === 'string') { // Ensure it's a string
       getFileFromCache(sharedFileUrl);
     }
     
@@ -92,7 +95,7 @@ export default function ImportPage() {
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleMessage);
     };
-  }, [searchParams]);
+  }, [searchParams.shared_file]); // Changed dependency
 
   // Update account selection when bank type changes
   useEffect(() => {
