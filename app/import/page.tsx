@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation'; // Removed useSearchParams import
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -104,6 +104,52 @@ export default function ImportPage({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankType, user]);
+  
+  const loadAccounts = async (userId: string) => {
+    try {
+      const userAccounts = await accountRepository.getByUserId(userId);
+      setAccounts(userAccounts);
+
+      // Pre-select account based on bank type
+      if (bankType === 'monobank') {
+        // Pre-select UAH account for Monobank
+        const uahAccount = userAccounts.find(acc => acc.currency === 'UAH');
+        if (uahAccount) {
+          setSelectedAccount(uahAccount.id);
+        } else if (userAccounts.length > 0) {
+          setSelectedAccount(userAccounts[0].id);
+        }
+      } else {
+        // Pre-select EUR account for Trustee
+        const eurAccount = userAccounts.find(acc => acc.currency === 'EUR');
+        if (eurAccount) {
+          setSelectedAccount(eurAccount.id);
+        } else if (userAccounts.length > 0) {
+          setSelectedAccount(userAccounts[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      // Validate file type based on bank
+      if (bankType === 'trustee' && selectedFile.type !== 'application/pdf') {
+        setError('Please select a PDF file for Trustee bank');
+        return;
+      }
+      if (bankType === 'monobank' && !selectedFile.name.endsWith('.csv')) {
+        setError('Please select a CSV file for Monobank');
+        return;
+      }
+      setFile(selectedFile);
+      setError('');
+      setParsedTransactions([]);
+    }
+  };
 
   // Wrap in useCallback to stabilize for useEffect dependency
   const handleParseFile = useCallback(async () => {
@@ -171,112 +217,7 @@ export default function ImportPage({
       handleParseFile();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [file, selectedAccount, searchParams.shared_file, handleParseFile]);
-  
-  const loadAccounts = async (userId: string) => {
-    try {
-      const userAccounts = await accountRepository.getByUserId(userId);
-      setAccounts(userAccounts);
-
-      // Pre-select account based on bank type
-      if (bankType === 'monobank') {
-        // Pre-select UAH account for Monobank
-        const uahAccount = userAccounts.find(acc => acc.currency === 'UAH');
-        if (uahAccount) {
-          setSelectedAccount(uahAccount.id);
-        } else if (userAccounts.length > 0) {
-          setSelectedAccount(userAccounts[0].id);
-        }
-      } else {
-        // Pre-select EUR account for Trustee
-        const eurAccount = userAccounts.find(acc => acc.currency === 'EUR');
-        if (eurAccount) {
-          setSelectedAccount(eurAccount.id);
-        } else if (userAccounts.length > 0) {
-          setSelectedAccount(userAccounts[0].id);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      // Validate file type based on bank
-      if (bankType === 'trustee' && selectedFile.type !== 'application/pdf') {
-        setError('Please select a PDF file for Trustee bank');
-        return;
-      }
-      if (bankType === 'monobank' && !selectedFile.name.endsWith('.csv')) {
-        setError('Please select a CSV file for Monobank');
-        return;
-      }
-      setFile(selectedFile);
-      setError('');
-      setParsedTransactions([]);
-    }
-  };
-
-  const handleParseFile = async () => {
-    if (!file || !user) return;
-
-    setImporting(true);
-    setError('');
-
-    try {
-      let transactions: ParsedTransaction[];
-
-      if (bankType === 'monobank') {
-        // Parse CSV client-side
-        const statementData = await parseMonobankCSV(file);
-        transactions = statementData.transactions;
-      } else {
-        // Parse PDF server-side (Trustee)
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('/api/parse-pdf', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to parse PDF');
-        }
-
-        const statementData: TrusteeStatementData = result.data;
-
-        // Convert date strings back to Date objects
-        transactions = statementData.transactions.map(txn => ({
-          ...txn,
-          date: new Date(txn.date),
-        }));
-      }
-
-      setParsedTransactions(transactions);
-
-      // Store in sessionStorage for preview page
-      sessionStorage.setItem('parsedTransactions', JSON.stringify({
-        transactions: transactions.map(t => ({
-          ...t,
-          date: t.date.toISOString(),
-        })),
-        accountId: selectedAccount,
-        timestamp: Date.now(),
-      }));
-
-      setImporting(false);
-    } catch (err) {
-      console.error('Error parsing file:', err);
-      setError(err instanceof Error ? err.message : 'Failed to parse file');
-      setImporting(false);
-    }
-  };
-
+  }, [file, selectedAccount, searchParams.shared_file, handleParseFile, importing]); // Added 'importing' to dependencies
 
   if (loading) {
     return (
