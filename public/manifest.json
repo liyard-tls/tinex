@@ -53,5 +53,18 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
+  "share_target": {
+    "action": "/import/share-target/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "statement",
+          "accept": ["application/pdf", "text/csv", ".pdf", ".csv"]
+        }
+      ]
+    }
+  },
   "prefer_related_applications": false
 }

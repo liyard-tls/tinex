@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Button } from '@/shared/components/ui';
 import Input from '@/shared/components/ui/Input';
-import { CreateAccountInput, AccountType, Currency, ACCOUNT_TYPES, CURRENCIES } from '@/core/models';
+import { CreateAccountInput, AccountType, Currency, ACCOUNT_TYPES, CURRENCIES, getAccountDefaults } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 
 interface AddAccountFormProps {
@@ -25,9 +25,14 @@ export default function AddAccountForm({ onSubmit, onCancel }: AddAccountFormPro
   const handleFormSubmit = async (data: CreateAccountInput) => {
     setLoading(true);
     try {
+      // Get default icon and color for account type
+      const defaults = getAccountDefaults(data.type);
+
       await onSubmit({
         ...data,
         balance: Number(data.balance),
+        icon: data.icon || defaults.icon,
+        color: data.color || defaults.color,
       });
       reset();
     } catch (error) {

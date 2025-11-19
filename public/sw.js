@@ -37,6 +37,57 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - network first, then cache
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Intercept Share Target POST requests
+  if (event.request.method === 'POST' && url.pathname === '/import/share-target/') {
+    event.respondWith(
+      (async () => {
+        try {
+          const formData = await event.request.formData();
+          const file = formData.get('statement'); // 'statement' is the name from manifest.json
+
+          if (!file) {
+            return Response.redirect('/import/?error=true', 303);
+          }
+
+          // Store the file in a dedicated cache
+          const cache = await caches.open('shared-files-cache');
+          // Use a unique name for the cache entry, e.g., based on timestamp
+          const fileUrl = `/shared/${Date.now()}_${file.name}`;
+          await cache.put(fileUrl, new Response(file));
+          
+          // Notify the client/s
+          const clients = await self.clients.matchAll({ type: 'window' });
+          for (const client of clients) {
+            client.postMessage({
+              type: 'FILE_SHARED',
+              fileUrl: fileUrl,
+              fileName: file.name,
+              fileType: file.type
+            });
+          }
+
+          // If a client is open, focus it. Otherwise, open a new window.
+          if (clients.length > 0) {
+            await clients[0].focus();
+            // Redirect the focused client
+            return Response.redirect(clients[0].url.split('?')[0] + `?shared_file=${encodeURIComponent(fileUrl)}`, 303);
+          } else {
+            self.clients.openWindow(`/import/?shared_file=${encodeURIComponent(fileUrl)}`);
+          }
+          
+          return Response.redirect('/import/', 303);
+
+        } catch (error) {
+          console.error('Share target error:', error);
+          return Response.redirect('/import/?error=true', 303);
+        }
+      })()
+    );
+    return;
+  }
+
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 

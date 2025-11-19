@@ -32,6 +32,8 @@ import {
   Smartphone,
   Coffee,
   Gift,
+  CreditCard,
+  PiggyBank,
 } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
@@ -42,7 +44,7 @@ import { CreateTransactionInput, Transaction, Account, Category, Tag, UserSettin
 import { convertMultipleCurrencies, convertCurrency, formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 
-// Icon mapping for categories
+// Icon mapping for categories and accounts
 const ICONS = {
   DollarSign,
   Briefcase,
@@ -59,6 +61,9 @@ const ICONS = {
   Home,
   Smartphone,
   Coffee,
+  Wallet,
+  CreditCard,
+  PiggyBank,
   Gift,
 };
 
@@ -287,7 +292,13 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {accounts.map((account) => (
+                {accounts.map((account) => {
+                  const AccountIcon = account.icon
+                    ? ICONS[account.icon as keyof typeof ICONS] || Wallet
+                    : Wallet;
+                  const accountColor = account.color || '#6b7280';
+
+                  return (
                   <Link
                     key={account.id}
                     href={`/accounts/${account.id}`}
@@ -295,7 +306,12 @@ export default function DashboardPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <Wallet className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div
+                          className="h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${accountColor}20` }}
+                        >
+                          <AccountIcon className="h-4 w-4" style={{ color: accountColor }} />
+                        </div>
                         <p className="text-sm font-medium truncate">{account.name}</p>
                       </div>
                       <p className="text-sm font-semibold flex-shrink-0">
@@ -303,7 +319,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -398,7 +415,7 @@ export default function DashboardPage() {
 
                     {/* Category icon */}
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+                      className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"
                       style={{ backgroundColor: category ? `${category.color}20` : '#6b728020' }}
                     >
                       <IconComponent

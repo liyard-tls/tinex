@@ -56,13 +56,13 @@ export const DEFAULT_ACCOUNTS: Omit<CreateAccountInput, 'userId'>[] = [
   },
 ];
 
-export const ACCOUNT_TYPES: { value: AccountType; label: string }[] = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'bank', label: 'Bank Account' },
-  { value: 'credit_card', label: 'Credit Card' },
-  { value: 'savings', label: 'Savings' },
-  { value: 'investment', label: 'Investment' },
-  { value: 'other', label: 'Other' },
+export const ACCOUNT_TYPES: { value: AccountType; label: string; defaultIcon: string; defaultColor: string }[] = [
+  { value: 'cash', label: 'Cash', defaultIcon: 'DollarSign', defaultColor: '#10b981' },
+  { value: 'bank', label: 'Bank Account', defaultIcon: 'Briefcase', defaultColor: '#3b82f6' },
+  { value: 'credit_card', label: 'Credit Card', defaultIcon: 'CreditCard', defaultColor: '#8b5cf6' },
+  { value: 'savings', label: 'Savings', defaultIcon: 'PiggyBank', defaultColor: '#f59e0b' },
+  { value: 'investment', label: 'Investment', defaultIcon: 'TrendingUp', defaultColor: '#06b6d4' },
+  { value: 'other', label: 'Other', defaultIcon: 'Wallet', defaultColor: '#6b7280' },
 ];
 
 export const CURRENCIES: { value: Currency; label: string; symbol: string }[] = [
@@ -77,3 +77,12 @@ export const CURRENCIES: { value: Currency; label: string; symbol: string }[] = 
   { value: 'UAH', label: 'Ukrainian Hryvnia', symbol: '₴' },
   { value: 'SGD', label: 'Singapore Dollar', symbol: 'S$' },
 ];
+
+// Helper function to get default icon and color for account type
+export function getAccountDefaults(type: AccountType): { icon: string; color: string } {
+  const accountType = ACCOUNT_TYPES.find(t => t.value === type);
+  return {
+    icon: accountType?.defaultIcon || 'Wallet',
+    color: accountType?.defaultColor || '#6b7280'
+  };
+}

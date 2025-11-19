@@ -31,7 +31,7 @@ import { transactionRepository } from '@/core/repositories/TransactionRepository
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
-import { Transaction, Category, Tag, Account } from '@/core/models';
+import { Transaction, Category, Tag, Account, CURRENCIES } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 
 // Icon mapping for categories
@@ -52,6 +52,11 @@ const ICONS = {
   Smartphone,
   Coffee,
   Gift,
+};
+
+// Helper function to get currency symbol
+const getCurrencySymbol = (currency: string) => {
+  return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
 };
 
 export default function TransactionsPage() {
@@ -244,7 +249,7 @@ export default function TransactionsPage() {
                             {/* Category icon */}
                             <div
                               onClick={(e) => handleCategoryIconClick(e, txn)}
-                              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
+                              className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2 hover:ring-2 hover:ring-primary/50 transition-all cursor-pointer"
                               style={{
                                 backgroundColor: category ? `${category.color}20` : '#6b728020',
                               }}
@@ -299,7 +304,9 @@ export default function TransactionsPage() {
                                 txn.type === 'income' ? 'text-success' : 'text-destructive'
                               )}
                             >
-                              {txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}
+                              {txn.type === 'income' ? '+' : '-'}
+                              {getCurrencySymbol(txn.currency)}
+                              {txn.amount.toFixed(2)}
                             </p>
                           </div>
                         );

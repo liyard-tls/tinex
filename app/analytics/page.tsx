@@ -608,7 +608,7 @@ export default function AnalyticsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                           style={{ backgroundColor: `${cat.color}20` }}
                         >
                           <IconComponent className="h-4 w-4" style={{ color: cat.color }} />
@@ -660,7 +660,7 @@ export default function AnalyticsPage() {
                   <div key={cat.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ backgroundColor: `${cat.color}20` }}
                       >
                         <IconComponent className="h-4 w-4" style={{ color: cat.color }} />

@@ -33,6 +33,8 @@ import {
   Pencil,
   Check,
   X,
+  CreditCard,
+  PiggyBank,
 } from 'lucide-react';
 import Input from '@/shared/components/ui/Input';
 import { accountRepository } from '@/core/repositories/AccountRepository';
@@ -41,7 +43,7 @@ import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { Account, Transaction, Category, Tag, CURRENCIES } from '@/core/models';
 
-// Icon mapping for categories
+// Icon mapping for categories and accounts
 const ICONS = {
   DollarSign,
   Briefcase,
@@ -58,6 +60,9 @@ const ICONS = {
   Home,
   Smartphone,
   Coffee,
+  Wallet,
+  CreditCard,
+  PiggyBank,
   Gift,
 };
 
@@ -388,7 +393,7 @@ export default function AccountDetailPage() {
 
                       {/* Category icon */}
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ml-2"
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"
                         style={{ backgroundColor: category ? `${category.color}20` : '#6b728020' }}
                       >
                         <IconComponent

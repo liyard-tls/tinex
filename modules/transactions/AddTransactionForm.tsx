@@ -257,7 +257,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
                 return (
                   <>
                     <div
-                      className="w-5 h-5 rounded-full flex items-center justify-center"
+                      className="w-5 h-5 rounded flex items-center justify-center"
                       style={{ backgroundColor: `${cat.color}20` }}
                     >
                       <IconComponent className="h-3 w-3" style={{ color: cat.color }} />
@@ -300,7 +300,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
                   )}
                 >
                   <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                    className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: `${cat.color}20` }}
                   >
                     <IconComponent className="h-4 w-4" style={{ color: cat.color }} />

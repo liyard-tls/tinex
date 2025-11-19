@@ -269,7 +269,7 @@ function CategoryCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
             <div
-              className="w-10 h-10 rounded-full flex items-center justify-center"
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
               style={{ backgroundColor: `${category.color}20` }}
             >
               <IconComponent className="h-5 w-5" style={{ color: category.color }} />

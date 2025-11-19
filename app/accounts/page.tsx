@@ -31,6 +31,8 @@ import {
   Coffee,
   Gift,
   Tag as TagIcon,
+  CreditCard,
+  PiggyBank,
 } from 'lucide-react';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
@@ -39,7 +41,7 @@ import { Account, CreateAccountInput, CURRENCIES, Transaction, Category } from '
 import { formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 
-// Icon mapping for categories
+// Icon mapping for categories and accounts
 const ICONS = {
   DollarSign,
   Briefcase,
@@ -57,6 +59,9 @@ const ICONS = {
   Smartphone,
   Coffee,
   Gift,
+  Wallet,
+  CreditCard,
+  PiggyBank,
 };
 
 export default function AccountsPage() {
@@ -170,7 +175,13 @@ export default function AccountsPage() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {accounts.map((account) => (
+                {accounts.map((account) => {
+                  const IconComponent = account.icon
+                    ? ICONS[account.icon as keyof typeof ICONS] || Wallet
+                    : Wallet;
+                  const accountColor = account.color || '#6b7280';
+
+                  return (
                   <Link
                     key={account.id}
                     href={`/accounts/${account.id}`}
@@ -178,8 +189,11 @@ export default function AccountsPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                          <Wallet className="h-4 w-4 text-primary" />
+                        <div
+                          className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${accountColor}20` }}
+                        >
+                          <IconComponent className="h-4 w-4" style={{ color: accountColor }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -208,7 +222,8 @@ export default function AccountsPage() {
                       </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
                 {/* Add Account Button inside card */}
                 <button
                   onClick={() => setShowAddAccount(true)}
@@ -251,60 +266,70 @@ export default function AccountsPage() {
                   const category = getCategoryById(transaction.categoryId);
                   const account = accounts.find((a) => a.id === transaction.accountId);
                   const txnDate = transaction.date instanceof Date ? transaction.date : new Date(transaction.date);
+                  const IconComponent = category
+                    ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                    : MoreHorizontal;
 
                   return (
-                    <Link
+                    <div
                       key={transaction.id}
-                      href={`/transactions/${transaction.id}`}
-                      className="block p-3 hover:bg-muted/30 transition-colors"
+                      onClick={() => router.push(`/transactions/${transaction.id}`)}
+                      className="flex items-center gap-3 p-3 relative overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3 flex-1 min-w-0">
-                          {category && (() => {
-                            const IconComponent = ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal;
-                            return (
-                              <div
-                                className="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: `${category.color}20` }}
-                              >
-                                <IconComponent className="h-4 w-4" style={{ color: category.color }} />
-                              </div>
-                            );
-                          })()}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{transaction.description}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              {category && (
-                                <span className="text-xs text-muted-foreground">{category.name}</span>
-                              )}
-                              {account && (
-                                <>
-                                  <span className="text-xs text-muted-foreground">•</span>
-                                  <span className="text-xs text-muted-foreground">{account.name}</span>
-                                </>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {txnDate.toLocaleDateString('uk-UA', {
-                                day: 'numeric',
-                                month: 'short',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className={cn(
-                            "text-sm font-semibold",
-                            transaction.type === 'income' ? "text-success" : "text-destructive"
-                          )}>
-                            {transaction.type === 'income' ? '+' : '-'}
-                            {formatCurrency(transaction.amount, transaction.currency)}
+                      {/* Side gradient bar */}
+                      {category && (
+                        <div
+                          className="absolute left-0 top-0 bottom-0 w-1"
+                          style={{
+                            background: `linear-gradient(to bottom, ${category.color}, ${category.color}80)`,
+                          }}
+                        />
+                      )}
+
+                      {/* Category icon */}
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ml-2"
+                        style={{
+                          backgroundColor: category ? `${category.color}20` : '#6b728020',
+                        }}
+                      >
+                        <IconComponent
+                          className="h-5 w-5"
+                          style={{ color: category?.color || '#6b7280' }}
+                        />
+                      </div>
+
+                      {/* Transaction details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{transaction.description}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            {txnDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
                           </p>
+                          <span className="text-xs text-muted-foreground">•</span>
+                          <p className="text-xs text-muted-foreground">
+                            {account?.name || 'Unknown'}
+                          </p>
+                          {category && (
+                            <span className="text-xs text-muted-foreground">•</span>
+                          )}
+                          {category && (
+                            <p className="text-xs text-muted-foreground">{category.name}</p>
+                          )}
                         </div>
                       </div>
-                    </Link>
+
+                      {/* Amount */}
+                      <p
+                        className={cn(
+                          'text-sm font-semibold flex-shrink-0',
+                          transaction.type === 'income' ? 'text-success' : 'text-destructive'
+                        )}
+                      >
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {formatCurrency(transaction.amount, transaction.currency)}
+                      </p>
+                    </div>
                   );
                 })}
               </div>
