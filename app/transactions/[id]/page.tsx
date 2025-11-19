@@ -30,7 +30,7 @@ import {
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { Transaction, Account, Category } from '@/core/models';
+import { Transaction, Account, Category, CURRENCIES } from '@/core/models';
 import { formatDate } from 'date-fns';
 import { cn } from '@/shared/utils/cn';
 
@@ -68,6 +68,11 @@ export default function TransactionDetailPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  // Helper function to get currency symbol
+  const getCurrencySymbol = (currency: string) => {
+    return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
+  };
 
   // Form state
   const [formData, setFormData] = useState({
@@ -277,7 +282,9 @@ export default function TransactionDetailPage() {
                   formData.type === 'income' ? 'text-success' : 'text-destructive'
                 )}
               >
-                {formData.type === 'income' ? '+' : '-'}${formData.amount}
+                {formData.type === 'income' ? '+' : '-'}
+                {transaction?.currency ? getCurrencySymbol(transaction.currency) : '$'}
+                {formData.amount}
               </p>
             </div>
 
