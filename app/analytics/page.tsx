@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
@@ -60,7 +60,7 @@ function CustomTooltip({ active, payload }: TooltipProps) {
   return null;
 }
 
-export default function AnalyticsPage() {
+function AnalyticsContent() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -77,6 +77,7 @@ export default function AnalyticsPage() {
     categoryTotals: {} as Record<string, number>,
   });
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Week navigation state
   const getWeekDates = (date: Date) => {
@@ -91,7 +92,19 @@ export default function AnalyticsPage() {
     return { start: monday, end: sunday };
   };
 
-  const [currentWeek, setCurrentWeek] = useState(() => getWeekDates(new Date()));
+  const [currentWeek, setCurrentWeek] = useState(() => {
+    // Check URL parameters for date range
+    const urlStartDate = searchParams.get('startDate');
+    const urlEndDate = searchParams.get('endDate');
+
+    if (urlStartDate && urlEndDate) {
+      const start = new Date(urlStartDate);
+      const end = new Date(urlEndDate);
+      return { start, end };
+    }
+
+    return getWeekDates(new Date());
+  });
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
@@ -188,6 +201,57 @@ export default function AnalyticsPage() {
       return isInPeriod;
     });
   }, [transactions, start, end, categories]);
+
+  // Calculate ignored transactions (excluded from analytics)
+  const ignoredTransactions = useMemo(() => {
+    // Get system category IDs (Transfer Out, Transfer In)
+    const systemCategoryIds = categories
+      .filter(cat =>
+        cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+        cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
+      )
+      .map(cat => cat.id);
+
+    return transactions.filter((txn) => {
+      const txnDate = new Date(txn.date);
+      const isInPeriod = txnDate >= start && txnDate <= end;
+
+      if (!isInPeriod) return false;
+
+      // Include if transaction is marked to exclude from analytics
+      if (txn.excludeFromAnalytics) return true;
+
+      // Include if transaction belongs to system transfer category
+      if (systemCategoryIds.includes(txn.categoryId)) return true;
+
+      return false;
+    });
+  }, [transactions, start, end, categories]);
+
+  // Calculate ignored transactions total
+  const [ignoredTotal, setIgnoredTotal] = useState(0);
+
+  useEffect(() => {
+    const calculateIgnoredTotal = async () => {
+      if (!userSettings || ignoredTransactions.length === 0) {
+        setIgnoredTotal(0);
+        return;
+      }
+
+      let total = 0;
+      for (const txn of ignoredTransactions) {
+        const convertedAmount = await convertCurrency(
+          txn.amount,
+          txn.currency,
+          userSettings.baseCurrency
+        );
+        total += convertedAmount;
+      }
+      setIgnoredTotal(total);
+    };
+
+    calculateIgnoredTotal();
+  }, [ignoredTransactions, userSettings]);
 
   // Convert transactions to base currency whenever period or transactions change
   useEffect(() => {
@@ -592,7 +656,14 @@ export default function AnalyticsPage() {
                     onClick={() => {
                       const startDate = currentWeek.start.toISOString();
                       const endDate = currentWeek.end.toISOString();
-                      router.push(`/transactions?categoryId=${cat.id}&startDate=${startDate}&endDate=${endDate}`);
+
+                      // Build returnTo URL with date parameters
+                      const returnToParams = new URLSearchParams();
+                      returnToParams.set('startDate', startDate);
+                      returnToParams.set('endDate', endDate);
+                      const returnTo = `/analytics?${returnToParams.toString()}`;
+
+                      router.push(`/transactions?categoryId=${cat.id}&startDate=${startDate}&endDate=${endDate}&returnTo=${encodeURIComponent(returnTo)}`);
                     }}
                     className="w-full space-y-2 text-left hover:bg-muted/30 p-2 -m-2 rounded-lg transition-colors"
                   >
@@ -648,32 +719,100 @@ export default function AnalyticsPage() {
                 const incomePercentage = totalIncome > 0 ? (cat.total / totalIncome) * 100 : 0;
 
                 return (
-                  <div key={cat.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${cat.color}20` }}
-                      >
-                        <IconComponent className="h-4 w-4" style={{ color: cat.color }} />
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      const startDate = currentWeek.start.toISOString();
+                      const endDate = currentWeek.end.toISOString();
+
+                      // Build returnTo URL with date parameters
+                      const returnToParams = new URLSearchParams();
+                      returnToParams.set('startDate', startDate);
+                      returnToParams.set('endDate', endDate);
+                      const returnTo = `/analytics?${returnToParams.toString()}`;
+
+                      router.push(`/transactions?categoryId=${cat.id}&startDate=${startDate}&endDate=${endDate}&returnTo=${encodeURIComponent(returnTo)}`);
+                    }}
+                    className="w-full space-y-2 text-left hover:bg-muted/30 p-2 -m-2 rounded-lg transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div
+                          className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ backgroundColor: `${cat.color}20` }}
+                        >
+                          <IconComponent className="h-5 w-5" style={{ color: cat.color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{cat.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {cat.count} transaction{cat.count !== 1 ? 's' : ''}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{cat.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {cat.count} transaction{cat.count !== 1 ? 's' : ''}
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-sm font-semibold text-success">
+                          {formatCurrency(cat.total, userSettings?.baseCurrency || 'USD')}
                         </p>
+                        <p className="text-xs text-muted-foreground">{incomePercentage.toFixed(1)}%</p>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-sm font-semibold text-success">
-                        {formatCurrency(cat.total, userSettings?.baseCurrency || 'USD')}
-                      </p>
+                    {/* Progress bar */}
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${incomePercentage}%`,
+                          backgroundColor: cat.color,
+                        }}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Ignored Transactions */}
+        {ignoredTransactions.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Ignored Transactions</CardTitle>
+              <CardDescription>Excluded from analytics</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <button
+                onClick={() => {
+                  const startDate = currentWeek.start.toISOString();
+                  const endDate = currentWeek.end.toISOString();
+                  const returnToParams = new URLSearchParams();
+                  returnToParams.set('startDate', startDate);
+                  returnToParams.set('endDate', endDate);
+                  const returnTo = `/analytics?${returnToParams.toString()}`;
+                  router.push(`/transactions?ignored=true&startDate=${startDate}&endDate=${endDate}&returnTo=${encodeURIComponent(returnTo)}`);
+                }}
+                className="w-full space-y-2 text-left hover:bg-muted/30 p-3 rounded-lg transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-muted">
+                      <X className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">All Ignored</p>
                       <p className="text-xs text-muted-foreground">
-                        {incomePercentage.toFixed(1)}%
+                        {ignoredTransactions.length} transaction{ignoredTransactions.length !== 1 ? 's' : ''}
                       </p>
                     </div>
                   </div>
-                );
-              })}
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-sm font-semibold">
+                      {formatCurrency(ignoredTotal, userSettings?.baseCurrency || 'USD')}
+                    </p>
+                  </div>
+                </div>
+              </button>
             </CardContent>
           </Card>
         )}
@@ -819,5 +958,20 @@ export default function AnalyticsPage() {
 
       <BottomNav />
     </div>
+  );
+}
+
+export default function AnalyticsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <AnalyticsContent />
+    </Suspense>
   );
 }

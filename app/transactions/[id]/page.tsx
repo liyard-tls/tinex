@@ -1,7 +1,7 @@
 "use client";
 import { MoreHorizontal, ArrowLeft, Trash2 } from 'lucide-react';
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
@@ -20,7 +20,9 @@ import { CATEGORY_ICONS } from '@/shared/config/icons';
 export default function TransactionDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const transactionId = params.id as string;
+  const returnTo = searchParams.get('returnTo');
 
   const [user, setUser] = useState<{ uid: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,7 +166,7 @@ export default function TransactionDetailPage() {
     setDeleting(true);
     try {
       await transactionRepository.delete(transactionId);
-      router.push("/transactions");
+      router.push(returnTo || "/transactions");
     } catch (error) {
       console.error("Failed to delete transaction:", error);
       alert("Failed to delete transaction");
@@ -200,7 +202,7 @@ export default function TransactionDetailPage() {
         <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
-            onClick={() => router.push("/transactions")}
+            onClick={() => router.push(returnTo || "/transactions")}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />

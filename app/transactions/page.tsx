@@ -7,12 +7,12 @@ import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardTitle } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
-import { Filter, X, MoreHorizontal } from 'lucide-react';
+import { Filter, X, MoreHorizontal, ArrowLeft } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
-import { Transaction, Category, Tag, Account, CURRENCIES } from '@/core/models';
+import { Transaction, Category, Tag, Account, CURRENCIES, SYSTEM_CATEGORIES } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
 
@@ -97,8 +97,27 @@ function TransactionsContent() {
   const urlCategoryId = searchParams.get('categoryId');
   const urlStartDate = searchParams.get('startDate');
   const urlEndDate = searchParams.get('endDate');
+  const returnTo = searchParams.get('returnTo');
+  const showIgnored = searchParams.get('ignored') === 'true';
 
   const filteredTransactions = transactions.filter((txn) => {
+    // Apply ignored filter from URL
+    if (showIgnored) {
+      // Get system category IDs (Transfer Out, Transfer In)
+      const systemCategoryIds = categories
+        .filter(cat =>
+          cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+          cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
+        )
+        .map(cat => cat.id);
+
+      // Only show transactions that are excluded from analytics
+      const isIgnored = txn.excludeFromAnalytics || systemCategoryIds.includes(txn.categoryId);
+      if (!isIgnored) {
+        return false;
+      }
+    }
+
     // Apply type filter
     if (filterType !== 'all' && txn.type !== filterType) {
       return false;
@@ -150,21 +169,39 @@ function TransactionsContent() {
   if (!user) return null;
 
   // Check if filters are active
-  const hasActiveFilters = urlCategoryId || (urlStartDate && urlEndDate);
+  const hasActiveFilters = urlCategoryId || (urlStartDate && urlEndDate) || showIgnored;
   const filteredCategory = urlCategoryId ? categories.find(c => c.id === urlCategoryId) : null;
 
   const clearFilters = () => {
-    router.push('/transactions');
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      router.push('/transactions');
+    }
   };
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
         <div className="px-4 py-3">
-          <h1 className="text-xl font-bold">All Transactions</h1>
-          <p className="text-xs text-muted-foreground">
-            {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={clearFilters}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+            <div className="flex-1">
+              <h1 className="text-xl font-bold">All Transactions</h1>
+              <p className="text-xs text-muted-foreground">
+                {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -174,6 +211,11 @@ function TransactionsContent() {
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
             <div className="flex-1">
               <p className="text-sm font-medium">Filtered View</p>
+              {showIgnored && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Ignored transactions only
+                </p>
+              )}
               {filteredCategory && (
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Category: {filteredCategory.name}
@@ -256,7 +298,20 @@ function TransactionsContent() {
                         return (
                           <div
                             key={txn.id}
-                            onClick={() => router.push(`/transactions/${txn.id}`)}
+                            onClick={() => {
+                              // Build return URL with current filters
+                              const params = new URLSearchParams();
+                              if (urlCategoryId) params.set('categoryId', urlCategoryId);
+                              if (urlStartDate) params.set('startDate', urlStartDate);
+                              if (urlEndDate) params.set('endDate', urlEndDate);
+                              if (returnTo) params.set('returnTo', returnTo);
+
+                              const returnUrl = params.toString()
+                                ? `/transactions?${params.toString()}`
+                                : '/transactions';
+
+                              router.push(`/transactions/${txn.id}?returnTo=${encodeURIComponent(returnUrl)}`);
+                            }}
                             className="flex items-center gap-3 p-3 relative overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer"
                           >
                             {/* Side gradient bar */}
