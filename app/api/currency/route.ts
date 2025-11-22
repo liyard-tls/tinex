@@ -23,7 +23,7 @@ function getFallbackRates(): Record<string, number> {
 }
 
 /**
- * Fetches exchange rates from CurrencyFreaks API
+ * Fetches exchange rates from ExchangeRate API
  * API key is stored server-side only
  */
 async function fetchExchangeRates(): Promise<Record<string, number>> {
@@ -42,7 +42,7 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
     }
 
     const response = await fetch(
-      `https://api.currencyfreaks.com/v2.0/rates/latest?apikey=${apiKey}`
+      `https://v6.exchangerate-api.com/v6/${apiKey}/latest/USD`
     );
 
     if (!response.ok) {
@@ -51,18 +51,13 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
 
     const data = await response.json();
 
-    // CurrencyFreaks returns rates with USD as base (1 USD = X currency)
-    const rates: Record<string, number> = {
-      USD: 1,
-    };
-
-    // Convert string rates to numbers
-    for (const [currency, rate] of Object.entries(data.rates)) {
-      const numRate = typeof rate === 'string' ? parseFloat(rate as string) : (rate as number);
-      if (!isNaN(numRate)) {
-        rates[currency] = numRate;
-      }
+    // Check if the API call was successful
+    if (data.result !== 'success') {
+      throw new Error('API returned error result');
     }
+
+    // ExchangeRate API returns conversion_rates object with USD as base
+    const rates: Record<string, number> = data.conversion_rates;
 
     // Cache the rates
     exchangeRatesCache = {
