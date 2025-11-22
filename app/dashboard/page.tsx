@@ -1,5 +1,5 @@
 'use client';
-
+import { MoreHorizontal, Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -11,30 +11,7 @@ import BottomNav from '@/shared/components/layout/BottomNav';
 import FAB from '@/shared/components/ui/FAB';
 import Modal from '@/shared/components/ui/Modal';
 import AddTransactionForm from '@/modules/transactions/AddTransactionForm';
-import {
-  TrendingUp,
-  TrendingDown,
-  Plus,
-  LogOut,
-  Upload,
-  Wallet,
-  DollarSign,
-  Briefcase,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  CreditCard,
-  PiggyBank,
-} from 'lucide-react';
+
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
@@ -43,29 +20,8 @@ import { userSettingsRepository } from '@/core/repositories/UserSettingsReposito
 import { CreateTransactionInput, Transaction, Account, Category, Tag, UserSettings } from '@/core/models';
 import { convertMultipleCurrencies, convertCurrency, formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
-// Icon mapping for categories and accounts
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Wallet,
-  CreditCard,
-  PiggyBank,
-  Gift,
-};
 
 export default function DashboardPage() {
   const [user, setUser] = useState<{ uid: string; email: string; displayName?: string } | null>(null);
@@ -140,7 +96,17 @@ export default function DashboardPage() {
         categoryRepository.getByUserId(userId),
         tagRepository.getByUserId(userId),
       ]);
-      setCategories(userCategories);
+
+      // If no categories exist, create default categories
+      if (userCategories.length === 0) {
+        await categoryRepository.createDefaultCategories(userId);
+        // Reload categories after creating defaults
+        const updatedCategories = await categoryRepository.getByUserId(userId);
+        setCategories(updatedCategories);
+      } else {
+        setCategories(userCategories);
+      }
+
       setTags(userTags);
 
       // Load recent transactions (limited to 10)
@@ -294,7 +260,7 @@ export default function DashboardPage() {
               <div className="divide-y divide-border">
                 {accounts.map((account) => {
                   const AccountIcon = account.icon
-                    ? ICONS[account.icon as keyof typeof ICONS] || Wallet
+                    ? CATEGORY_ICONS[account.icon as keyof typeof CATEGORY_ICONS] || Wallet
                     : Wallet;
                   const accountColor = account.color || '#6b7280';
 
@@ -393,7 +359,7 @@ export default function DashboardPage() {
               {transactions.slice(0, 5).map((txn) => {
                 const category = categories.find((c) => c.id === txn.categoryId);
                 const IconComponent = category
-                  ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                  ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
                   : MoreHorizontal;
                 const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
 

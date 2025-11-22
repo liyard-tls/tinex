@@ -7,7 +7,15 @@
       "Bash(cat:*)",
       "Bash(npm run lint:*)",
       "Bash(npm test:*)",
-      "Bash(npm run type-check:*)"
+      "Bash(npm run type-check:*)",
+      "Bash(for file in \"app/accounts/[id]/page.tsx\" app/import/preview/page.tsx \"app/transactions/[id]/page.tsx\" app/dashboard/page.tsx app/accounts/page.tsx)",
+      "Bash(do)",
+      "Bash(if [ -f \"$file\" ])",
+      "Bash(then)",
+      "Bash(echo:*)",
+      "Bash(if grep -q \"^const ICONS = {\" \"$file\")",
+      "Bash(fi:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

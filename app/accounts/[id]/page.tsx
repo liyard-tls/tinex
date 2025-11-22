@@ -1,5 +1,5 @@
 'use client';
-
+import { MoreHorizontal, ArrowLeft, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -9,62 +9,15 @@ import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
-import {
-  ArrowLeft,
-  Wallet,
-  Trash2,
-  TrendingUp,
-  TrendingDown,
-  DollarSign,
-  Briefcase,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Plus,
-  Pencil,
-  Check,
-  X,
-  CreditCard,
-  PiggyBank,
-} from 'lucide-react';
+
 import Input from '@/shared/components/ui/Input';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { Account, Transaction, Category, Tag, CURRENCIES } from '@/core/models';
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
-// Icon mapping for categories and accounts
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Wallet,
-  CreditCard,
-  PiggyBank,
-  Gift,
-};
 
 export default function AccountDetailPage() {
   const params = useParams();
@@ -371,7 +324,7 @@ export default function AccountDetailPage() {
                 {transactions.map((txn) => {
                   const category = categories.find((c) => c.id === txn.categoryId);
                   const IconComponent = category
-                    ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                    ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
                     : MoreHorizontal;
                   const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
 

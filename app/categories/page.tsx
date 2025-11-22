@@ -9,50 +9,10 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
-import {
-  Plus,
-  Trash2,
-  Edit,
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-} from 'lucide-react';
+import { Plus, Trash2, Edit, MoreHorizontal } from 'lucide-react';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { Category, CreateCategoryInput, CategoryType, DEFAULT_CATEGORIES } from '@/core/models';
-
-// Icon mapping
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
-
-const ICON_OPTIONS = Object.keys(ICONS);
+import { Category, CreateCategoryInput, CategoryType, DEFAULT_CATEGORIES, SYSTEM_CATEGORIES } from '@/core/models';
+import { CATEGORY_ICONS, ICON_OPTIONS } from '@/shared/config/icons';
 
 const CATEGORY_COLORS = [
   '#ef4444', // red
@@ -174,8 +134,26 @@ export default function CategoriesPage() {
 
   if (!user) return null;
 
-  const incomeCategories = categories.filter((c) => c.type === 'income');
-  const expenseCategories = categories.filter((c) => c.type === 'expense');
+  // Helper to check if category is system category
+  const isSystemCategory = (categoryName: string) => {
+    const systemCategoryNames = Object.values(SYSTEM_CATEGORIES) as string[];
+    return systemCategoryNames.includes(categoryName);
+  };
+
+  // Sort categories: system categories first, then alphabetically
+  const sortCategories = (cats: Category[]) => {
+    return [...cats].sort((a, b) => {
+      const aIsSystem = isSystemCategory(a.name);
+      const bIsSystem = isSystemCategory(b.name);
+
+      if (aIsSystem && !bIsSystem) return -1;
+      if (!aIsSystem && bIsSystem) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  const incomeCategories = sortCategories(categories.filter((c) => c.type === 'income'));
+  const expenseCategories = sortCategories(categories.filter((c) => c.type === 'expense'));
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -261,7 +239,11 @@ function CategoryCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const IconComponent = ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal;
+  const IconComponent = CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
+
+  // Check if this is a system category
+  const systemCategoryNames = Object.values(SYSTEM_CATEGORIES) as string[];
+  const isSystem = systemCategoryNames.includes(category.name);
 
   return (
     <Card className="overflow-hidden">
@@ -280,26 +262,28 @@ function CategoryCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={onEdit}
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            {!category.isDefault && (
+          {!isSystem && (
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                onClick={onDelete}
+                className="h-8 w-8 p-0"
+                onClick={onEdit}
               >
-                <Trash2 className="h-4 w-4" />
+                <Edit className="h-4 w-4" />
               </Button>
-            )}
-          </div>
+              {!category.isDefault && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                  onClick={onDelete}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -378,7 +362,7 @@ function CategoryForm({
         <label className="block text-sm font-medium mb-2">Icon</label>
         <div className="grid grid-cols-8 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded-md">
           {ICON_OPTIONS.map((iconName) => {
-            const IconComp = ICONS[iconName as keyof typeof ICONS];
+            const IconComp = CATEGORY_ICONS[iconName as keyof typeof CATEGORY_ICONS];
             return (
               <button
                 key={iconName}

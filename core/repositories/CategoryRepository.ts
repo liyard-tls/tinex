@@ -11,7 +11,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Category, CreateCategoryInput, UpdateCategoryInput } from '@/core/models';
+import { Category, CreateCategoryInput, UpdateCategoryInput, DEFAULT_CATEGORIES, SYSTEM_CATEGORIES } from '@/core/models';
 import { FIREBASE_COLLECTIONS } from '@/shared/config/constants';
 
 export class CategoryRepository {
@@ -85,6 +85,13 @@ export class CategoryRepository {
    */
   async update(input: UpdateCategoryInput): Promise<void> {
     const { id, ...updateData } = input;
+
+    // Check if this is a system category
+    const category = await this.getById(id);
+    if (category && this.isSystemCategory(category.name)) {
+      throw new Error('Cannot update system category');
+    }
+
     const docRef = doc(db, this.collectionName, id);
 
     const updates: any = {
@@ -99,8 +106,21 @@ export class CategoryRepository {
    * Delete a category
    */
   async delete(id: string): Promise<void> {
+    // Check if this is a system category
+    const category = await this.getById(id);
+    if (category && this.isSystemCategory(category.name)) {
+      throw new Error('Cannot delete system category');
+    }
+
     const docRef = doc(db, this.collectionName, id);
     await deleteDoc(docRef);
+  }
+
+  /**
+   * Check if a category is a system category
+   */
+  private isSystemCategory(categoryName: string): boolean {
+    return Object.values(SYSTEM_CATEGORIES).includes(categoryName as any);
   }
 
   /**
@@ -112,6 +132,21 @@ export class CategoryRepository {
 
     const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
     await Promise.all(deletePromises);
+  }
+
+  /**
+   * Create default categories for a new user
+   */
+  async createDefaultCategories(userId: string): Promise<void> {
+    const createPromises = DEFAULT_CATEGORIES.map(category =>
+      this.create(userId, {
+        name: category.name,
+        type: category.type,
+        icon: category.icon,
+        color: category.color,
+      })
+    );
+    await Promise.all(createPromises);
   }
 
   /**

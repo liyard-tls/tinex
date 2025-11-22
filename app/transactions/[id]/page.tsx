@@ -1,5 +1,5 @@
 "use client";
-
+import { MoreHorizontal, ArrowLeft, Trash2 } from 'lucide-react';
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
@@ -7,52 +7,15 @@ import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
 import { Button } from "@/shared/components/ui";
 import { Input } from "@/shared/components/ui";
-import {
-  ArrowLeft,
-  Trash2,
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-} from "lucide-react";
+
 import { transactionRepository } from "@/core/repositories/TransactionRepository";
 import { accountRepository } from "@/core/repositories/AccountRepository";
 import { categoryRepository } from "@/core/repositories/CategoryRepository";
 import { Transaction, Account, Category, CURRENCIES } from "@/core/models";
 import { formatDate } from "date-fns";
 import { cn } from "@/shared/utils/cn";
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
-// Icon mapping for categories
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
 
 export default function TransactionDetailPage() {
   const router = useRouter();
@@ -224,7 +187,7 @@ export default function TransactionDetailPage() {
 
   const category = categories.find((c) => c.id === formData.categoryId);
   const IconComponent = category
-    ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+    ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
     : MoreHorizontal;
 
   return (

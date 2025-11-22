@@ -1,5 +1,5 @@
 'use client';
-
+import { MoreHorizontal, ArrowLeft, Download, Save, Edit2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -8,56 +8,16 @@ import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import { Input } from '@/shared/components/ui';
-import {
-  ArrowLeft,
-  Download,
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Plus,
-  Edit2,
-  Save,
-  X,
-} from 'lucide-react';
+
 import { ParsedTransaction } from '@/shared/services/trusteeParser';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { importedTransactionRepository } from '@/core/repositories/ImportedTransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { Category } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 import { detectCategoryFromDescription } from '@/shared/utils/categoryMatcher';
 
-// Icon mapping for categories
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
 
 interface EditableTransaction extends ParsedTransaction {
   index: number;
@@ -378,7 +338,7 @@ export default function ImportPreviewPage() {
                     {txns.map((txn) => {
                       const category = categories.find((c) => c.id === txn.categoryId);
                       const IconComponent = category
-                        ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                        ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
                         : MoreHorizontal;
                       const isSelected = selectedIndices.has(txn.index);
 
@@ -603,7 +563,7 @@ export default function ImportPreviewPage() {
                 categories
                   .filter((c) => selectedTransaction && c.type === selectedTransaction.type)
                   .map((cat) => {
-                    const CatIcon = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+                    const CatIcon = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
                     const isSelected = selectedTransaction?.categoryId === cat.id;
                     return (
                       <button

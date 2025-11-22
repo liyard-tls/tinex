@@ -10,27 +10,13 @@ import { Button } from '@/shared/components/ui';
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
-  Briefcase,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Plus,
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
   ChevronLeft,
   ChevronRight,
   X,
+  MoreHorizontal,
 } from 'lucide-react';
 import Input from '@/shared/components/ui/Input';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
@@ -41,26 +27,7 @@ import { userSettingsRepository } from '@/core/repositories/UserSettingsReposito
 import { Transaction, Category, Account, UserSettings, Currency } from '@/core/models';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
-
-// Icon mapping for categories
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
 // Custom Tooltip Component
 interface TooltipProps {
@@ -601,7 +568,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {topExpenseCategories.map((cat) => {
-                const IconComponent = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+                const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
 
                 return (
                   <div key={cat.id} className="space-y-2">
@@ -653,7 +620,7 @@ export default function AnalyticsPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {topIncomeCategories.map((cat) => {
-                const IconComponent = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+                const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
                 const incomePercentage = totalIncome > 0 ? (cat.total / totalIncome) * 100 : 0;
 
                 return (

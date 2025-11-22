@@ -7,52 +7,14 @@ import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardTitle } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
-import {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Plus,
-  Filter,
-  X,
-} from 'lucide-react';
+import { Filter, X, MoreHorizontal } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Transaction, Category, Tag, Account, CURRENCIES } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
-
-// Icon mapping for categories
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
 // Helper function to get currency symbol
 const getCurrencySymbol = (currency: string) => {
@@ -226,7 +188,7 @@ export default function TransactionsPage() {
                       {txns.map((txn) => {
                         const category = categories.find((c) => c.id === txn.categoryId);
                         const IconComponent = category
-                          ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                          ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
                           : MoreHorizontal;
                         const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
 
@@ -361,7 +323,7 @@ export default function TransactionsPage() {
                 </p>
               ) : (
                 categories.map((cat) => {
-                  const CatIcon = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+                  const CatIcon = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
                   const isSelected = selectedTransaction?.categoryId === cat.id;
                   return (
                     <button

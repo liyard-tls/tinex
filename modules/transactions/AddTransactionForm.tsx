@@ -11,44 +11,8 @@ import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { CURRENCIES } from '@/core/models/account';
 import { cn } from '@/shared/utils/cn';
-import {
-  X,
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-} from 'lucide-react';
-
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-};
+import { X, MoreHorizontal } from 'lucide-react';
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
 interface AddTransactionFormProps {
   onSubmit: (data: CreateTransactionInput, currency: string) => Promise<void>;
@@ -253,7 +217,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
               {(() => {
                 const cat = filteredCategories.find(c => c.id === selectedCategoryId);
                 if (!cat) return 'Select category';
-                const IconComponent = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+                const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
                 return (
                   <>
                     <div
@@ -284,7 +248,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         {showCategoryDropdown && (
           <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-60 overflow-auto">
             {filteredCategories.map((cat) => {
-              const IconComponent = ICONS[cat.icon as keyof typeof ICONS] || MoreHorizontal;
+              const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
               return (
                 <button
                   key={cat.id}

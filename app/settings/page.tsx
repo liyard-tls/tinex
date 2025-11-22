@@ -19,6 +19,7 @@ import {
   LogOut,
   Trash2,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
@@ -194,6 +195,39 @@ export default function ProfilePage() {
     }
   };
 
+  const handleRegenerateCategories = async () => {
+    if (!user) return;
+
+    const confirmText = 'REGENERATE';
+    const userInput = prompt(
+      `This will delete all existing categories and recreate the default categories.\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) {
+        alert('Regeneration cancelled.');
+      }
+      return;
+    }
+
+    setClearing(true);
+    try {
+      // Delete all existing categories
+      await categoryRepository.deleteAllForUser(user.uid);
+
+      // Create default categories
+      await categoryRepository.createDefaultCategories(user.uid);
+
+      alert('Categories regenerated successfully.');
+    } catch (error) {
+      console.error('Failed to regenerate categories:', error);
+      alert('Failed to regenerate categories. Please try again.');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -344,12 +378,23 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Danger Zone */}
+        {/* Dev Panel */}
         <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle className="text-sm text-destructive">Danger Zone</CardTitle>
+            <CardTitle className="text-sm text-destructive">Dev Panel</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-primary hover:text-primary border-primary/50"
+              onClick={handleRegenerateCategories}
+              disabled={clearing}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Regenerate Categories
+            </Button>
+
             <Button
               variant="outline"
               size="sm"

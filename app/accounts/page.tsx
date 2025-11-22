@@ -1,5 +1,5 @@
 'use client';
-
+import { MoreHorizontal, Plus, Wallet, ArrowRight, Tag as TagIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -11,58 +11,15 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
-import {
-  Plus,
-  Wallet,
-  ArrowRight,
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Tag as TagIcon,
-  CreditCard,
-  PiggyBank,
-} from 'lucide-react';
+
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { Account, CreateAccountInput, CURRENCIES, Transaction, Category } from '@/core/models';
 import { formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
+import { CATEGORY_ICONS } from '@/shared/config/icons';
 
-// Icon mapping for categories and accounts
-const ICONS = {
-  DollarSign,
-  Briefcase,
-  TrendingUp,
-  Plus,
-  Utensils,
-  ShoppingBag,
-  Car,
-  FileText,
-  Film,
-  Heart,
-  BookOpen,
-  MoreHorizontal,
-  Home,
-  Smartphone,
-  Coffee,
-  Gift,
-  Wallet,
-  CreditCard,
-  PiggyBank,
-};
 
 export default function AccountsPage() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
@@ -177,7 +134,7 @@ export default function AccountsPage() {
               <div className="divide-y divide-border">
                 {accounts.map((account) => {
                   const IconComponent = account.icon
-                    ? ICONS[account.icon as keyof typeof ICONS] || Wallet
+                    ? CATEGORY_ICONS[account.icon as keyof typeof CATEGORY_ICONS] || Wallet
                     : Wallet;
                   const accountColor = account.color || '#6b7280';
 
@@ -267,7 +224,7 @@ export default function AccountsPage() {
                   const account = accounts.find((a) => a.id === transaction.accountId);
                   const txnDate = transaction.date instanceof Date ? transaction.date : new Date(transaction.date);
                   const IconComponent = category
-                    ? ICONS[category.icon as keyof typeof ICONS] || MoreHorizontal
+                    ? CATEGORY_ICONS[category.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal
                     : MoreHorizontal;
 
                   return (
