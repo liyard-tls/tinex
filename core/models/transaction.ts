@@ -17,6 +17,7 @@ export interface Transaction {
   sourceName?: string; // Bank name or manual entry
   merchantName?: string;
   notes?: string;
+  excludeFromAnalytics?: boolean; // If true, exclude from analytics calculations
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +33,7 @@ export interface CreateTransactionInput {
   sourceName?: string;
   merchantName?: string;
   notes?: string;
+  excludeFromAnalytics?: boolean;
 }
 
 export interface UpdateTransactionInput extends Partial<CreateTransactionInput> {

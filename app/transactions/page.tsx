@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
@@ -21,7 +21,7 @@ const getCurrencySymbol = (currency: string) => {
   return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
 };
 
-export default function TransactionsPage() {
+function TransactionsContent() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -32,6 +32,7 @@ export default function TransactionsPage() {
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -92,9 +93,33 @@ export default function TransactionsPage() {
     }
   };
 
+  // Get URL params for filtering
+  const urlCategoryId = searchParams.get('categoryId');
+  const urlStartDate = searchParams.get('startDate');
+  const urlEndDate = searchParams.get('endDate');
+
   const filteredTransactions = transactions.filter((txn) => {
-    if (filterType === 'all') return true;
-    return txn.type === filterType;
+    // Apply type filter
+    if (filterType !== 'all' && txn.type !== filterType) {
+      return false;
+    }
+
+    // Apply category filter from URL
+    if (urlCategoryId && txn.categoryId !== urlCategoryId) {
+      return false;
+    }
+
+    // Apply date range filter from URL
+    if (urlStartDate && urlEndDate) {
+      const txnDate = new Date(txn.date);
+      const startDate = new Date(urlStartDate);
+      const endDate = new Date(urlEndDate);
+      if (txnDate < startDate || txnDate > endDate) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   // Group transactions by date
@@ -124,6 +149,14 @@ export default function TransactionsPage() {
 
   if (!user) return null;
 
+  // Check if filters are active
+  const hasActiveFilters = urlCategoryId || (urlStartDate && urlEndDate);
+  const filteredCategory = urlCategoryId ? categories.find(c => c.id === urlCategoryId) : null;
+
+  const clearFilters = () => {
+    router.push('/transactions');
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
@@ -136,6 +169,34 @@ export default function TransactionsPage() {
       </header>
 
       <main className="px-4 py-4 space-y-4">
+        {/* Active Filter Indicator */}
+        {hasActiveFilters && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium">Filtered View</p>
+              {filteredCategory && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Category: {filteredCategory.name}
+                </p>
+              )}
+              {urlStartDate && urlEndDate && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {new Date(urlStartDate).toLocaleDateString()} - {new Date(urlEndDate).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="gap-2"
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </Button>
+          </div>
+        )}
+
         {/* Filter Buttons */}
         <div className="flex gap-2">
           <Button
@@ -362,5 +423,20 @@ export default function TransactionsPage() {
 
       <BottomNav />
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    }>
+      <TransactionsContent />
+    </Suspense>
   );
 }

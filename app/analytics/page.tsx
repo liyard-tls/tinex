@@ -24,7 +24,7 @@ import { transactionRepository } from '@/core/repositories/TransactionRepository
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
-import { Transaction, Category, Account, UserSettings, Currency } from '@/core/models';
+import { Transaction, Category, Account, UserSettings, Currency, SYSTEM_CATEGORIES } from '@/core/models';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
@@ -167,11 +167,27 @@ export default function AnalyticsPage() {
   // Filter transactions by current week - use useMemo to prevent recreating array
   const { start, end } = currentWeek;
   const periodTransactions = useMemo(() => {
+    // Get system category IDs (Transfer Out, Transfer In)
+    const systemCategoryIds = categories
+      .filter(cat =>
+        cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+        cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
+      )
+      .map(cat => cat.id);
+
     return transactions.filter((txn) => {
       const txnDate = new Date(txn.date);
-      return txnDate >= start && txnDate <= end;
+      const isInPeriod = txnDate >= start && txnDate <= end;
+
+      // Exclude if transaction is marked to exclude from analytics
+      if (txn.excludeFromAnalytics) return false;
+
+      // Exclude if transaction belongs to system transfer category
+      if (systemCategoryIds.includes(txn.categoryId)) return false;
+
+      return isInPeriod;
     });
-  }, [transactions, start, end]);
+  }, [transactions, start, end, categories]);
 
   // Convert transactions to base currency whenever period or transactions change
   useEffect(() => {
@@ -571,7 +587,15 @@ export default function AnalyticsPage() {
                 const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
 
                 return (
-                  <div key={cat.id} className="space-y-2">
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      const startDate = currentWeek.start.toISOString();
+                      const endDate = currentWeek.end.toISOString();
+                      router.push(`/transactions?categoryId=${cat.id}&startDate=${startDate}&endDate=${endDate}`);
+                    }}
+                    className="w-full space-y-2 text-left hover:bg-muted/30 p-2 -m-2 rounded-lg transition-colors"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div
@@ -604,7 +628,7 @@ export default function AnalyticsPage() {
                         }}
                       />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </CardContent>

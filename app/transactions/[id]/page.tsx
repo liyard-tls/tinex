@@ -48,6 +48,7 @@ export default function TransactionDetailPage() {
     categoryId: "",
     merchantName: "",
     notes: "",
+    excludeFromAnalytics: false,
   });
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function TransactionDetailPage() {
         categoryId: txn.categoryId || "",
         merchantName: txn.merchantName || "",
         notes: txn.notes || "",
+        excludeFromAnalytics: txn.excludeFromAnalytics || false,
       });
     } catch (error) {
       console.error("Failed to load transaction:", error);
@@ -132,6 +134,7 @@ export default function TransactionDetailPage() {
           merchantName: formData.merchantName,
           notes: formData.notes,
           tags: selectedTags,
+          excludeFromAnalytics: formData.excludeFromAnalytics,
         });
       } catch (error) {
         console.error("Failed to save transaction:", error);
@@ -439,6 +442,29 @@ export default function TransactionDetailPage() {
                   placeholder="Add notes..."
                   className="w-full min-h-[80px] px-3 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                 />
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {/* Exclude from Analytics */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-sm font-medium">Exclude from Analytics</span>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    This transaction won't be included in analytics calculations
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.excludeFromAnalytics}
+                    onChange={(e) =>
+                      setFormData({ ...formData, excludeFromAnalytics: e.target.checked })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-muted peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
               </div>
             </div>
           </div>
