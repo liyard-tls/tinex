@@ -1,7 +1,10 @@
-import { Currency } from '@/core/models';
+import { Currency } from "@/core/models";
 
 // Exchange rates cache
-let exchangeRatesCache: { rates: Record<string, number>; timestamp: number } | null = null;
+let exchangeRatesCache: {
+  rates: Record<string, number>;
+  timestamp: number;
+} | null = null;
 const CACHE_DURATION = 3600000; // 1 hour in milliseconds
 
 /**
@@ -11,22 +14,25 @@ const CACHE_DURATION = 3600000; // 1 hour in milliseconds
  */
 async function fetchExchangeRates(): Promise<Record<string, number>> {
   // Check cache first
-  if (exchangeRatesCache && Date.now() - exchangeRatesCache.timestamp < CACHE_DURATION) {
+  if (
+    exchangeRatesCache &&
+    Date.now() - exchangeRatesCache.timestamp < CACHE_DURATION
+  ) {
     return exchangeRatesCache.rates;
   }
 
   try {
     // Call our Next.js API route instead of external API directly
-    const response = await fetch('/api/currency');
+    const response = await fetch("/api/currency");
 
     if (!response.ok) {
-      throw new Error('Failed to fetch exchange rates from API');
+      throw new Error("Failed to fetch exchange rates from API");
     }
 
     const data = await response.json();
 
     if (!data.success || !data.rates) {
-      throw new Error('Invalid response from currency API');
+      throw new Error("Invalid response from currency API");
     }
 
     // Cache the rates
@@ -37,7 +43,7 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
 
     return data.rates;
   } catch (error) {
-    console.error('Failed to fetch exchange rates:', error);
+    console.error("Failed to fetch exchange rates:", error);
 
     // Return fallback rates if API fails
     return getFallbackRates();
@@ -53,7 +59,7 @@ function getFallbackRates(): Record<string, number> {
     USD: 1,
     EUR: 0.92,
     GBP: 0.79,
-    JPY: 149.50,
+    JPY: 149.5,
     CAD: 1.36,
     AUD: 1.53,
     CHF: 0.88,
@@ -69,7 +75,7 @@ function getFallbackRates(): Record<string, number> {
 export async function convertCurrency(
   amount: number,
   fromCurrency: Currency,
-  toCurrency: Currency = 'USD'
+  toCurrency: Currency = "USD"
 ): Promise<number> {
   if (fromCurrency === toCurrency) {
     return amount;
@@ -80,7 +86,9 @@ export async function convertCurrency(
 
     // Check if rates exist for both currencies
     if (!rates[fromCurrency] || !rates[toCurrency]) {
-      console.warn(`Missing exchange rate for ${fromCurrency} or ${toCurrency}`);
+      console.warn(
+        `Missing exchange rate for ${fromCurrency} or ${toCurrency}`
+      );
       return amount; // Return original amount if rate is missing
     }
 
@@ -88,10 +96,10 @@ export async function convertCurrency(
     // To convert FROM a currency TO USD: amount / rates[fromCurrency]
     // To convert FROM USD TO a currency: amount * rates[toCurrency]
 
-    if (fromCurrency === 'USD') {
+    if (fromCurrency === "USD") {
       // From USD to another currency
       return amount * rates[toCurrency];
-    } else if (toCurrency === 'USD') {
+    } else if (toCurrency === "USD") {
       // From another currency to USD
       return amount / rates[fromCurrency];
     } else {
@@ -100,7 +108,7 @@ export async function convertCurrency(
       return amountInUSD * rates[toCurrency];
     }
   } catch (error) {
-    console.error('Currency conversion failed:', error);
+    console.error("Currency conversion failed:", error);
     // Return original amount if conversion fails
     return amount;
   }
@@ -111,7 +119,7 @@ export async function convertCurrency(
  */
 export async function convertMultipleCurrencies(
   amounts: Array<{ amount: number; currency: Currency }>,
-  toCurrency: Currency = 'USD'
+  toCurrency: Currency = "USD"
 ): Promise<number> {
   const rates = await fetchExchangeRates();
 
@@ -122,17 +130,19 @@ export async function convertMultipleCurrencies(
 
     // Check if rate exists for the currency
     if (!rates[item.currency] || !rates[toCurrency]) {
-      console.warn(`Missing exchange rate for ${item.currency} or ${toCurrency}`);
+      console.warn(
+        `Missing exchange rate for ${item.currency} or ${toCurrency}`
+      );
       return sum + item.amount; // Add original amount if rate is missing
     }
 
     // CurrencyFreaks API: 1 USD = rates[currency]
-    if (item.currency === 'USD') {
+    if (item.currency === "USD") {
       // From USD to target currency
-      return sum + (item.amount * rates[toCurrency]);
-    } else if (toCurrency === 'USD') {
+      return sum + item.amount * rates[toCurrency];
+    } else if (toCurrency === "USD") {
       // From item currency to USD
-      return sum + (item.amount / rates[item.currency]);
+      return sum + item.amount / rates[item.currency];
     } else {
       // From one currency to another (via USD)
       const amountInUSD = item.amount / rates[item.currency];
@@ -149,7 +159,7 @@ export async function convertMultipleCurrencies(
  */
 export async function getExchangeRate(
   fromCurrency: Currency,
-  toCurrency: Currency = 'USD'
+  toCurrency: Currency = "USD"
 ): Promise<number> {
   if (fromCurrency === toCurrency) {
     return 1;
@@ -159,10 +169,10 @@ export async function getExchangeRate(
     const rates = await fetchExchangeRates();
 
     // CurrencyFreaks API: 1 USD = rates[currency]
-    if (fromCurrency === 'USD') {
+    if (fromCurrency === "USD") {
       // USD to another currency
       return rates[toCurrency];
-    } else if (toCurrency === 'USD') {
+    } else if (toCurrency === "USD") {
       // Another currency to USD
       return 1 / rates[fromCurrency];
     } else {
@@ -171,7 +181,7 @@ export async function getExchangeRate(
       return rateToUSD * rates[toCurrency];
     }
   } catch (error) {
-    console.error('Failed to get exchange rate:', error);
+    console.error("Failed to get exchange rate:", error);
     return 1;
   }
 }
@@ -181,26 +191,27 @@ export async function getExchangeRate(
  */
 export function formatCurrency(amount: number, currency: Currency): string {
   const currencySymbols: Record<Currency, string> = {
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-    JPY: '¥',
-    CAD: 'C$',
-    AUD: 'A$',
-    CHF: 'CHF',
-    CNY: '¥',
-    UAH: '₴',
-    SGD: 'S$',
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    JPY: "¥",
+    CAD: "C$",
+    AUD: "A$",
+    CHF: "CHF",
+    CNY: "¥",
+    UAH: "₴",
+    SGD: "S$",
   };
 
   const symbol = currencySymbols[currency] || currency;
 
   // Format with 2 decimal places, except for JPY which doesn't use decimals
-  const formattedAmount = currency === 'JPY'
-    ? Math.round(amount).toLocaleString()
-    : amount.toFixed(2);
+  const formattedAmount =
+    currency === "JPY"
+      ? Math.round(amount).toLocaleString()
+      : amount.toFixed(2);
 
-  return `${symbol}${formattedAmount}`;
+  return `${symbol} ${formattedAmount}`;
 }
 
 /**

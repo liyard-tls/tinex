@@ -9,17 +9,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/sha
 import { Button } from '@/shared/components/ui';
 import { Filter, X, MoreHorizontal, ArrowLeft, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import Input from '@/shared/components/ui/Input';
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
-import { Transaction, Category, Tag, Account, CURRENCIES, UserSettings, Currency } from '@/core/models';
+import { budgetRepository } from '@/core/repositories/BudgetRepository';
+import { Transaction, Category, Tag, Account, CURRENCIES, UserSettings, Currency, BudgetProgress } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { SpendingInsights } from '@/modules/analytics';
+import BudgetCard from '@/modules/budgets/BudgetCard';
+import { calculateCategoryBudgetsProgress } from '@/modules/budgets/budgetProgressService';
 
 // Helper function to get currency symbol
 const getCurrencySymbol = (currency: string) => {
@@ -62,6 +65,7 @@ function CategoryTransactionsContent() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [budgetProgress, setBudgetProgress] = useState<BudgetProgress[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [showCategoryPanel, setShowCategoryPanel] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -120,12 +124,13 @@ function CategoryTransactionsContent() {
 
   const loadData = async (userId: string) => {
     try {
-      const [txns, userCategories, userTags, userAccounts, settings] = await Promise.all([
+      const [txns, userCategories, userTags, userAccounts, settings, userBudgets] = await Promise.all([
         transactionRepository.getByUserId(userId),
         categoryRepository.getByUserId(userId),
         tagRepository.getByUserId(userId),
         accountRepository.getByUserId(userId),
         userSettingsRepository.getOrCreate(userId),
+        budgetRepository.getByUserId(userId),
       ]);
 
       setTransactions(txns);
@@ -133,6 +138,17 @@ function CategoryTransactionsContent() {
       setTags(userTags);
       setAccounts(userAccounts);
       setUserSettings(settings);
+
+      // Calculate budget progress for this category
+      if (settings && userBudgets.length > 0) {
+        const categoryBudgetProgress = await calculateCategoryBudgetsProgress(
+          userBudgets,
+          categoryId,
+          userId,
+          settings.baseCurrency
+        );
+        setBudgetProgress(categoryBudgetProgress);
+      }
     } catch (error) {
       console.error('Failed to load transactions:', error);
     }
@@ -265,6 +281,11 @@ function CategoryTransactionsContent() {
     calculateChartData();
   }, [transactions, categoryId, userSettings, currentWeek]);
 
+  // Find weekly budget for this category (if exists)
+  const weeklyBudget = useMemo(() => {
+    return budgetProgress.find((bp) => bp.budget.period === 'week');
+  }, [budgetProgress]);
+
   // Group transactions by date
   const groupedTransactions = filteredTransactions.reduce((groups, txn) => {
     const date = new Date(txn.date).toLocaleDateString('en-US', {
@@ -360,6 +381,25 @@ function CategoryTransactionsContent() {
                     }}
                   />
                   <Tooltip content={<CustomTooltip />} />
+                  {/* Weekly budget target line */}
+                  {weeklyBudget && (
+                    <ReferenceLine
+                      y={weeklyBudget.budget.amount}
+                      stroke="#eab308"
+                      strokeDasharray="5 5"
+                      strokeWidth={2}
+                      label={{
+                        value: `Target: ${formatCurrency(
+                          weeklyBudget.budget.amount,
+                          userSettings?.baseCurrency || 'USD'
+                        )}`,
+                        position: 'insideTopRight',
+                        fill: '#eab308',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    />
+                  )}
                   <Area
                     type="monotone"
                     dataKey="amount"
@@ -381,6 +421,34 @@ function CategoryTransactionsContent() {
             chartData={chartData}
             currency={userSettings.baseCurrency}
           />
+        )}
+
+        {/* Budgets for this category */}
+        {budgetProgress.length > 0 && category && userSettings && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-foreground px-1">
+              Budgets
+            </h2>
+            <div className="grid grid-cols-1 gap-3">
+              {budgetProgress.map((bp) => (
+                <BudgetCard
+                  key={bp.budget.id}
+                  budgetProgress={bp}
+                  category={category}
+                  currency={userSettings.baseCurrency}
+                  onClick={() => {
+                    const startDateStr = bp.budget.startDate.toISOString().split('T')[0];
+                    const endDateStr = (bp.budget.endDate || new Date())
+                      .toISOString()
+                      .split('T')[0];
+                    router.push(
+                      `/transactions/category/${categoryId}?startDate=${startDateStr}&endDate=${endDateStr}&returnTo=/budgets`
+                    );
+                  }}
+                />
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Filter Buttons */}

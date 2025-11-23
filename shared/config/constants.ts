@@ -60,6 +60,6 @@ export const FILE_UPLOAD = {
   },
 } as const;
 
-export const BUDGET_PERIODS = ['weekly', 'monthly', 'yearly'] as const;
+export const BUDGET_PERIODS = ['day', 'week', 'month', 'year'] as const;
 
 export const TRANSACTION_TYPES = ['income', 'expense', 'transfer'] as const;
