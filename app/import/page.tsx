@@ -10,13 +10,44 @@ import { Button } from '@/shared/components/ui';
 import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { ParsedTransaction as TrusteeParsedTransaction, TrusteeStatementData } from '@/shared/services/trusteeParser';
 import { ParsedTransaction as MonobankParsedTransaction, parseMonobankCSV } from '@/shared/services/monobankParser';
+import { ParsedTransaction as PrivatParsedTransaction, PrivatStatementData } from '@/shared/services/privatParser';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Account } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 
 // Unified interface
-type ParsedTransaction = TrusteeParsedTransaction | MonobankParsedTransaction;
-type BankType = 'trustee' | 'monobank';
+type ParsedTransaction = TrusteeParsedTransaction | MonobankParsedTransaction | PrivatParsedTransaction;
+type BankType = 'trustee' | 'monobank' | 'privat';
+
+/**
+ * Detect bank type from PDF content using API
+ */
+async function detectPdfBankType(file: File): Promise<'trustee' | 'privat'> {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/detect-bank', {
+      method: 'POST',
+      body: formData,
+    });
+
+    const result = await response.json();
+
+    if (result.success && result.bank) {
+      console.log('[PDF Detection] Detected bank type:', result.bank);
+      return result.bank;
+    }
+
+    // Default to trustee if detection failed
+    console.log('[PDF Detection] Could not determine bank type, defaulting to Trustee');
+    return 'trustee';
+  } catch (error) {
+    console.error('[PDF Detection] Error detecting bank type:', error);
+    // Default to Trustee on error
+    return 'trustee';
+  }
+}
 
 function ImportPageContent() {
   const [user, setUser] = useState<{ uid: string } | null>(null);
@@ -64,11 +95,13 @@ function ImportPageContent() {
 
           setFile(receivedFile);
           
-          // Auto-detect bank type from file extension
+          // Auto-detect bank type from file extension and content
           if (receivedFile.name.toLowerCase().endsWith('.csv')) {
             setBankType('monobank');
           } else if (receivedFile.name.toLowerCase().endsWith('.pdf')) {
-            setBankType('trustee');
+            // Try to auto-detect PDF bank type by reading content
+            const detectedBank = await detectPdfBankType(receivedFile);
+            setBankType(detectedBank);
           }
 
           // Clean up the cache
@@ -112,21 +145,30 @@ function ImportPageContent() {
 
       let preSelectedAccountId: string | undefined = undefined;
 
-      // Pre-select account based on bank type
-      if (bankType === 'monobank') {
+      // Pre-select account based on bank type and currency
+      if (bankType === 'monobank' || bankType === 'privat') {
+        // Ukrainian banks use UAH
         const uahAccount = userAccounts.find(acc => acc.currency === 'UAH');
         if (uahAccount) {
           preSelectedAccountId = uahAccount.id;
+          console.log('[Import] Pre-selected UAH account for', bankType);
         } else if (userAccounts.length > 0) {
           preSelectedAccountId = userAccounts[0].id;
+          console.log('[Import] No UAH account found, using first available account');
         }
-      } else { // trustee
+      } else if (bankType === 'trustee') {
+        // Trustee uses EUR
         const eurAccount = userAccounts.find(acc => acc.currency === 'EUR');
         if (eurAccount) {
           preSelectedAccountId = eurAccount.id;
+          console.log('[Import] Pre-selected EUR account for Trustee');
         } else if (userAccounts.length > 0) {
           preSelectedAccountId = userAccounts[0].id;
+          console.log('[Import] No EUR account found, using first available account');
         }
+      } else if (userAccounts.length > 0) {
+        // Fallback: select first account
+        preSelectedAccountId = userAccounts[0].id;
       }
 
       if (preSelectedAccountId) {
@@ -137,12 +179,42 @@ function ImportPageContent() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Validate file type based on bank
-      if (bankType === 'trustee' && selectedFile.type !== 'application/pdf') {
-        setError('Please select a PDF file for Trustee bank');
+      // Auto-detect bank type for PDF files
+      if (selectedFile.type === 'application/pdf' || selectedFile.name.toLowerCase().endsWith('.pdf')) {
+        const detectedBank = await detectPdfBankType(selectedFile);
+        console.log('[Import] Auto-detected bank type:', detectedBank);
+        setBankType(detectedBank);
+        setFile(selectedFile);
+        setError('');
+        setParsedTransactions([]);
+
+        // Pre-select account based on detected bank
+        if (user) {
+          loadAccounts(user.uid);
+        }
+        return;
+      }
+
+      // For CSV, assume Monobank
+      if (selectedFile.name.toLowerCase().endsWith('.csv')) {
+        console.log('[Import] CSV file detected, setting bank type to Monobank');
+        setBankType('monobank');
+        setFile(selectedFile);
+        setError('');
+        setParsedTransactions([]);
+
+        if (user) {
+          loadAccounts(user.uid);
+        }
+        return;
+      }
+
+      // Validate file type based on selected bank
+      if ((bankType === 'trustee' || bankType === 'privat') && selectedFile.type !== 'application/pdf') {
+        setError(`Please select a PDF file for ${bankType === 'trustee' ? 'Trustee' : 'Privat Bank'}`);
         return;
       }
       if (bankType === 'monobank' && !selectedFile.name.endsWith('.csv')) {
@@ -172,9 +244,10 @@ function ImportPageContent() {
         const statementData = await parseMonobankCSV(file);
         transactions = statementData.transactions;
       } else {
-        // Parse PDF server-side (Trustee)
+        // Parse PDF server-side (Trustee or Privat)
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('bankType', bankType);
 
         const response = await fetch('/api/parse-pdf', {
           method: 'POST',
@@ -187,7 +260,7 @@ function ImportPageContent() {
           throw new Error(result.error || 'Failed to parse PDF');
         }
 
-        const statementData: TrusteeStatementData = result.data;
+        const statementData: TrusteeStatementData | PrivatStatementData = result.data;
 
         // Convert date strings back to Date objects
         transactions = statementData.transactions.map(txn => ({
@@ -254,7 +327,7 @@ function ImportPageContent() {
             <CardDescription>Choose your bank to import from</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => {
                   setBankType('trustee');
@@ -291,6 +364,24 @@ function ImportPageContent() {
               >
                 Monobank (CSV)
               </button>
+              <button
+                onClick={() => {
+                  setBankType('privat');
+                  setFile(null);
+                  setParsedTransactions([]);
+                  setError('');
+                  if (user) loadAccounts(user.uid);
+                }}
+                disabled={importing}
+                className={cn(
+                  'px-4 py-3 text-sm font-medium rounded-md transition-colors border-2',
+                  bankType === 'privat'
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border hover:border-primary/50'
+                )}
+              >
+                Privat (PDF)
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -325,7 +416,9 @@ function ImportPageContent() {
             <CardDescription>
               {bankType === 'trustee'
                 ? 'Select a Trustee PDF statement file to import'
-                : 'Select a Monobank CSV export file to import'}
+                : bankType === 'monobank'
+                ? 'Select a Monobank CSV export file to import'
+                : 'Select a Privat Bank PDF statement file to import'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -342,12 +435,12 @@ function ImportPageContent() {
                 >
                   <Upload className="h-5 w-5" />
                   <span className="text-sm">
-                    {file ? file.name : bankType === 'trustee' ? 'Choose PDF file' : 'Choose CSV file'}
+                    {file ? file.name : bankType === 'monobank' ? 'Choose CSV file' : 'Choose PDF file'}
                   </span>
                   <input
                     id="file-upload"
                     type="file"
-                    accept={bankType === 'trustee' ? 'application/pdf' : '.csv'}
+                    accept={bankType === 'monobank' ? '.csv' : 'application/pdf'}
                     onChange={handleFileChange}
                     className="hidden"
                     disabled={importing}
@@ -428,9 +521,9 @@ function ImportPageContent() {
           </CardHeader>
           <CardContent>
             <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-              <li>Select your bank (Trustee or Monobank)</li>
+              <li>Select your bank (Trustee, Monobank, or Privat Bank)</li>
               <li>Select the account to import transactions into</li>
-              <li>Upload your bank statement file ({bankType === 'trustee' ? 'PDF' : 'CSV'})</li>
+              <li>Upload your bank statement file ({bankType === 'monobank' ? 'CSV' : 'PDF'})</li>
               <li>Click "Parse File" to extract transactions</li>
               <li>Review the preview and click "Review & Import"</li>
               <li>Duplicate transactions will be automatically skipped</li>

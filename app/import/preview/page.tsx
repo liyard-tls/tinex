@@ -13,10 +13,15 @@ import { ParsedTransaction } from '@/shared/services/trusteeParser';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { importedTransactionRepository } from '@/core/repositories/ImportedTransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { Category } from '@/core/models';
+import { Category, CURRENCIES } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
 import { detectCategoryFromDescription } from '@/shared/utils/categoryMatcher';
+
+// Helper function to get currency symbol
+const getCurrencySymbol = (currency: string) => {
+  return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
+};
 
 
 interface EditableTransaction extends ParsedTransaction {
@@ -481,7 +486,8 @@ export default function ImportPreviewPage() {
                                 txn.type === 'income' ? 'text-success' : 'text-destructive'
                               )}
                             >
-                              {txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}
+                              {txn.type === 'income' ? '+' : '-'}
+                              {getCurrencySymbol(txn.currency)} {txn.amount.toFixed(2)}
                             </p>
                             <Button
                               variant="ghost"
