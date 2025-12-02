@@ -132,6 +132,15 @@ export default function DashboardPage() {
           })),
           settings.baseCurrency
         );
+        console.log('[Dashboard] Total balance:', {
+          totalBalance: balancesConverted,
+          accountsCount: userAccounts.length,
+          accounts: userAccounts.map(acc => ({
+            name: acc.name,
+            balance: acc.balance,
+            currency: acc.currency
+          }))
+        });
         setTotalBalance(balancesConverted);
       } else {
         setTotalBalance(0);

@@ -253,6 +253,70 @@ function AnalyticsContent() {
     calculateIgnoredTotal();
   }, [ignoredTransactions, userSettings]);
 
+  // Calculate transfer losses
+  // This is the difference between actual balance and what it would be without transfers
+  const [transferLoss, setTransferLoss] = useState(0);
+
+  useEffect(() => {
+    const calculateTransferLoss = async () => {
+      if (!userSettings || accounts.length === 0) {
+        setTransferLoss(0);
+        return;
+      }
+
+      // Get actual current balance (from accounts)
+      let actualBalance = 0;
+      for (const account of accounts) {
+        const convertedBalance = await convertCurrency(
+          account.balance,
+          account.currency,
+          userSettings.baseCurrency
+        );
+        actualBalance += convertedBalance;
+      }
+
+      // Calculate theoretical balance (without transfers)
+      // Start from actual balance and add back transfer effects
+      let theoreticalBalance = actualBalance;
+
+      // Get transfer transactions
+      const systemCategoryIds = categories
+        .filter(cat =>
+          cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+          cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
+        )
+        .map(cat => cat.id);
+
+      const transferTxns = transactions.filter((t) =>
+        systemCategoryIds.includes(t.categoryId)
+      );
+
+      // Add back the transfer effects to see what balance would be without them
+      for (const txn of transferTxns) {
+        const convertedAmount = await convertCurrency(
+          txn.amount,
+          txn.currency,
+          userSettings.baseCurrency
+        );
+        // Reverse the transfer effect
+        theoreticalBalance -= (txn.type === 'income' ? convertedAmount : -convertedAmount);
+      }
+
+      // The difference is the loss (or gain) from transfers
+      const loss = actualBalance - theoreticalBalance;
+      setTransferLoss(loss);
+
+      console.log('[Analytics] Transfer loss calculation:', {
+        actualBalance,
+        theoreticalBalance,
+        loss,
+        transferCount: transferTxns.length,
+      });
+    };
+
+    calculateTransferLoss();
+  }, [accounts, transactions, categories, userSettings]);
+
   // Convert transactions to base currency whenever period or transactions change
   useEffect(() => {
     const convertTransactions = async () => {
@@ -365,8 +429,8 @@ function AnalyticsContent() {
 
   // Memoize chart generation dependencies to prevent infinite loops
   const chartKey = useMemo(() => {
-    return `${periodTransactions.length}-${chartSource}-${userSettings?.baseCurrency}-${start.getTime()}-${daysInPeriod}`;
-  }, [periodTransactions.length, chartSource, userSettings?.baseCurrency, start, daysInPeriod]);
+    return `${periodTransactions.length}-${chartSource}-${userSettings?.baseCurrency}-${start.getTime()}-${daysInPeriod}-${accounts.length}-${transactions.length}`;
+  }, [periodTransactions.length, chartSource, userSettings?.baseCurrency, start, daysInPeriod, accounts.length, transactions.length]);
 
   useEffect(() => {
     const generateChartData = async () => {
@@ -377,14 +441,70 @@ function AnalyticsContent() {
 
       const dataPoints: { date: string; balance: number; currency?: string }[] = [];
 
-      // Filter transactions by source
-      let filteredTxns = periodTransactions;
+      // Filter relevant accounts
+      let relevantAccounts = accounts;
       if (chartSource !== 'total') {
-        filteredTxns = periodTransactions.filter((t) => t.accountId === chartSource);
+        relevantAccounts = accounts.filter((a) => a.id === chartSource);
       }
 
+      // Get ALL transactions in period (including transfers and excluded ones)
+      // because they affect the actual account balance
+      const allTxnsInPeriod = transactions.filter((t) => {
+        const txnDate = new Date(t.date);
+        const isInPeriod = txnDate >= start && txnDate <= end;
+
+        // Filter by account if specific account selected
+        if (chartSource !== 'total' && t.accountId !== chartSource) {
+          return false;
+        }
+
+        return isInPeriod;
+      });
+
+      // Calculate initial balance (account balances at start of period)
+      // This represents the balance before the period started
+      let initialBalance = 0;
+
+      for (const account of relevantAccounts) {
+        // Get current account balance (converted to base currency)
+        const convertedBalance = await convertCurrency(
+          account.balance,
+          account.currency,
+          userSettings.baseCurrency
+        );
+
+        // Get ALL transactions for this account from period start onwards
+        // (including transfers and excluded) because they affect the balance
+        const txnsFromPeriodStart = transactions.filter((t) =>
+          t.accountId === account.id && new Date(t.date) >= start
+        );
+
+        // Subtract transactions that happened from period start onwards to get initial balance
+        let balanceAtStart = convertedBalance;
+        for (const t of txnsFromPeriodStart) {
+          const convertedAmount = await convertCurrency(
+            t.amount,
+            t.currency,
+            userSettings.baseCurrency
+          );
+          // Reverse the transaction effect to go back in time
+          balanceAtStart -= (t.type === 'income' ? convertedAmount : -convertedAmount);
+        }
+
+        initialBalance += balanceAtStart;
+      }
+
+      // Debug logging
+      console.log('[Analytics Chart] Initial balance calculation:', {
+        initialBalance,
+        accountsCount: relevantAccounts.length,
+        allTransactionsInPeriod: allTxnsInPeriod.length,
+        periodStart: start.toISOString(),
+        periodEnd: end.toISOString(),
+      });
+
       // Sort transactions by date
-      const sortedTxns = [...filteredTxns].sort((a, b) =>
+      const sortedTxns = [...allTxnsInPeriod].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -398,7 +518,8 @@ function AnalyticsContent() {
           new Date(t.date) <= date
         );
 
-        let runningBalance = 0;
+        // Start with initial balance
+        let runningBalance = initialBalance;
         for (const t of txnsUpToDate) {
           const convertedAmount = await convertCurrency(
             t.amount,
@@ -412,6 +533,15 @@ function AnalyticsContent() {
           date: date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }),
           balance: runningBalance,
           currency: userSettings.baseCurrency,
+        });
+      }
+
+      // Debug: Log final balance
+      if (dataPoints.length > 0) {
+        console.log('[Analytics Chart] Final balance:', {
+          finalBalance: dataPoints[dataPoints.length - 1].balance,
+          firstBalance: dataPoints[0].balance,
+          change: dataPoints[dataPoints.length - 1].balance - dataPoints[0].balance,
         });
       }
 
@@ -813,6 +943,56 @@ function AnalyticsContent() {
                   </div>
                 </div>
               </button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Transfer Loss Alert */}
+        {Math.abs(transferLoss) > 0.01 && (
+          <Card className={cn(
+            "border-2",
+            transferLoss < 0 ? "border-destructive/50 bg-destructive/5" : "border-success/50 bg-success/5"
+          )}>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                {transferLoss < 0 ? (
+                  <ArrowDownRight className="h-5 w-5 text-destructive" />
+                ) : (
+                  <ArrowUpRight className="h-5 w-5 text-success" />
+                )}
+                Transfer {transferLoss < 0 ? 'Loss' : 'Gain'}
+              </CardTitle>
+              <CardDescription>
+                {transferLoss < 0
+                  ? 'Money lost due to currency conversion and fees during transfers'
+                  : 'Money gained during transfers (favorable exchange rates)'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    {transferLoss < 0 ? 'Total Loss' : 'Total Gain'}
+                  </p>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    transferLoss < 0 ? "text-destructive" : "text-success"
+                  )}>
+                    {transferLoss < 0 ? '-' : '+'}
+                    {formatCurrency(
+                      Math.abs(transferLoss),
+                      userSettings?.baseCurrency || 'USD'
+                    )}
+                  </p>
+                </div>
+                <div className="text-xs text-muted-foreground pt-2 border-t">
+                  <p>
+                    {transferLoss < 0
+                      ? 'This represents the difference between your actual balance and what it would be without any transfers. Common causes: currency exchange rate losses, transfer fees, or timing of conversions.'
+                      : 'You gained money from favorable exchange rates during transfers between accounts.'}
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
