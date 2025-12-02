@@ -38,4 +38,5 @@ export interface CreateTransactionInput {
 
 export interface UpdateTransactionInput extends Partial<CreateTransactionInput> {
   id: string;
+  currency?: Currency;
 }

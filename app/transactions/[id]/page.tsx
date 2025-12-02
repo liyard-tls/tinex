@@ -7,6 +7,7 @@ import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
 import { Button } from "@/shared/components/ui";
 import { Input } from "@/shared/components/ui";
+import AccountSelect from "@/shared/components/ui/AccountSelect";
 
 import { transactionRepository } from "@/core/repositories/TransactionRepository";
 import { accountRepository } from "@/core/repositories/AccountRepository";
@@ -328,22 +329,33 @@ export default function TransactionDetailPage() {
               <div className="h-px bg-border" />
 
               {/* Account */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Account</span>
-                <select
+              <div>
+                <AccountSelect
+                  accounts={accounts}
                   value={formData.accountId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, accountId: e.target.value })
-                  }
-                  className="px-3 py-1.5 text-sm bg-background border border-border rounded-md"
-                >
-                  <option value="">Select account</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.currency})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(accountId) => {
+                    setFormData({ ...formData, accountId });
+                    // Update transaction currency when account changes
+                    const selectedAccount = accounts.find(acc => acc.id === accountId);
+                    if (selectedAccount && transaction) {
+                      // Update transaction currency in database
+                      transactionRepository.update({
+                        id: transactionId,
+                        accountId: accountId,
+                        currency: selectedAccount.currency,
+                      }).catch((error) => {
+                        console.error('Failed to update currency:', error);
+                      });
+                      // Update local transaction state
+                      setTransaction({
+                        ...transaction,
+                        currency: selectedAccount.currency,
+                        accountId: accountId,
+                      });
+                    }
+                  }}
+                  label=""
+                />
               </div>
 
               <div className="h-px bg-border" />

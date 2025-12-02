@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/shared/components/ui';
 import Input from '@/shared/components/ui/Input';
+import AccountSelect from '@/shared/components/ui/AccountSelect';
 import { CreateTransactionInput, TransactionType, Account, Category, Tag } from '@/core/models';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
@@ -145,27 +146,13 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
       </div>
 
       {/* Account Selector */}
-      <div>
-        <label className="text-xs font-medium mb-1.5 block">Account</label>
-        <select
-          value={selectedAccountId}
-          onChange={(e) => handleAccountChange(e.target.value)}
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={loading || accounts.length === 0}
-        >
-          {accounts.length === 0 && <option value="">No accounts available</option>}
-          {accounts.map((account) => (
-            <option key={account.id} value={account.id}>
-              {account.name} ({account.currency})
-            </option>
-          ))}
-        </select>
-        {accounts.length === 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Create an account first to add transactions
-          </p>
-        )}
-      </div>
+      <AccountSelect
+        accounts={accounts}
+        value={selectedAccountId}
+        onChange={handleAccountChange}
+        disabled={loading}
+        required
+      />
 
       {/* Amount */}
       <div>

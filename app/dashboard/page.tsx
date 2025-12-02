@@ -65,7 +65,6 @@ export default function DashboardPage() {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -121,9 +120,8 @@ export default function DashboardPage() {
         (a, b) => b.transactionCount - a.transactionCount
       );
 
-      // Store all accounts and top 3
+      // Store all accounts
       setAllAccounts(sortedAccounts);
-      setAccounts(sortedAccounts.slice(0, 3));
 
       // Calculate total balance in base currency
       if (userAccounts.length > 0) {
@@ -560,7 +558,7 @@ export default function DashboardPage() {
         <AddTransactionForm
           onSubmit={handleAddTransaction}
           onCancel={() => setShowAddTransaction(false)}
-          accounts={accounts}
+          accounts={allAccounts}
         />
       </Modal>
 
