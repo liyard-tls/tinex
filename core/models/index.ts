@@ -8,3 +8,4 @@ export * from './user';
 export * from './account';
 export * from './tag';
 export * from './user-settings';
+export * from './wishlist';

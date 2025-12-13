@@ -32,6 +32,7 @@ import { accountRepository } from "@/core/repositories/AccountRepository";
 import { categoryRepository } from "@/core/repositories/CategoryRepository";
 import { tagRepository } from "@/core/repositories/TagRepository";
 import { userSettingsRepository } from "@/core/repositories/UserSettingsRepository";
+import { wishlistItemRepository } from "@/core/repositories/WishlistItemRepository";
 import {
   CreateTransactionInput,
   Transaction,
@@ -39,6 +40,7 @@ import {
   Category,
   Tag,
   UserSettings,
+  WishlistItem,
   SYSTEM_CATEGORIES,
   CURRENCIES,
 } from "@/core/models";
@@ -76,6 +78,7 @@ export default function DashboardPage() {
     transactionCount: 0,
   });
   const [totalBalance, setTotalBalance] = useState<number>(0);
+  const [balanceWithFuture, setBalanceWithFuture] = useState<number>(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -123,9 +126,10 @@ export default function DashboardPage() {
       // Store all accounts
       setAllAccounts(sortedAccounts);
 
-      // Calculate total balance in base currency
+      // Calculate total balance in base currency (current account balances)
+      let accountsBalance = 0;
       if (userAccounts.length > 0) {
-        const balancesConverted = await convertMultipleCurrencies(
+        accountsBalance = await convertMultipleCurrencies(
           userAccounts.map((acc) => ({
             amount: acc.balance,
             currency: acc.currency,
@@ -133,7 +137,7 @@ export default function DashboardPage() {
           settings.baseCurrency
         );
         console.log('[Dashboard] Total balance:', {
-          totalBalance: balancesConverted,
+          totalBalance: accountsBalance,
           accountsCount: userAccounts.length,
           accounts: userAccounts.map(acc => ({
             name: acc.name,
@@ -141,10 +145,48 @@ export default function DashboardPage() {
             currency: acc.currency
           }))
         });
-        setTotalBalance(balancesConverted);
-      } else {
-        setTotalBalance(0);
       }
+
+      // Calculate future transactions total
+      const now = new Date();
+      const futureTxns = allTxns.filter((txn) => {
+        const txnDate = txn.date instanceof Date ? txn.date : (txn.date as { toDate: () => Date }).toDate();
+        return txnDate > now;
+      });
+
+      let futureAmount = 0;
+      for (const txn of futureTxns) {
+        const convertedAmount = await convertCurrency(
+          txn.amount,
+          txn.currency,
+          settings.baseCurrency
+        );
+        if (txn.type === "income") {
+          futureAmount += convertedAmount;
+        } else if (txn.type === "expense") {
+          futureAmount -= convertedAmount;
+        }
+      }
+
+      // Load confirmed wishlist items
+      const allWishlistItems = await wishlistItemRepository.getByUserId(userId);
+      const confirmedItems = allWishlistItems.filter((item: WishlistItem) => item.isConfirmed);
+
+      let confirmedWishlistTotal = 0;
+      for (const item of confirmedItems) {
+        const convertedAmount = await convertCurrency(
+          item.amount,
+          item.currency,
+          settings.baseCurrency
+        );
+        confirmedWishlistTotal += convertedAmount;
+      }
+
+      // Total balance (all transactions including future)
+      setTotalBalance(accountsBalance);
+
+      // Balance with future transactions and confirmed wishlists
+      setBalanceWithFuture(accountsBalance - futureAmount - confirmedWishlistTotal);
 
       // Load categories and tags
       const [userCategories, userTags] = await Promise.all([
@@ -301,21 +343,29 @@ export default function DashboardPage() {
         <Card
           className={cn(
             "bg-gradient-to-br",
-            totalBalance >= 0
+            balanceWithFuture >= 0
               ? "from-primary/20 to-primary/5"
               : "from-destructive/20 to-destructive/5"
           )}
         >
           <CardHeader>
             <CardDescription>
-              Total Balance ({userSettings?.baseCurrency || "USD"})
+              Balance ({userSettings?.baseCurrency || "USD"})
             </CardDescription>
             <CardTitle
-              className={cn("text-3xl", totalBalance < 0 && "text-destructive")}
+              className={cn("text-3xl", balanceWithFuture < 0 && "text-destructive")}
             >
               {formatCurrency(
-                totalBalance,
+                balanceWithFuture,
                 userSettings?.baseCurrency || "USD"
+              )}
+              {balanceWithFuture !== totalBalance && (
+                <span className="text-lg ml-2 text-muted-foreground">
+                  ({formatCurrency(
+                    totalBalance,
+                    userSettings?.baseCurrency || "USD"
+                  )})
+                </span>
               )}
             </CardTitle>
           </CardHeader>

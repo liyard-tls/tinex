@@ -15,7 +15,8 @@
       "Bash(echo:*)",
       "Bash(if grep -q \"^const ICONS = {\" \"$file\")",
       "Bash(fi:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

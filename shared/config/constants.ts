@@ -26,6 +26,8 @@ export const FIREBASE_COLLECTIONS = {
   IMPORTED_TRANSACTIONS: 'importedTransactions',
   ACCOUNTS: 'accounts',
   TAGS: 'tags',
+  WISHLISTS: 'wishlists',
+  WISHLIST_ITEMS: 'wishlistItems',
 } as const;
 
 export const DATE_FORMATS = {

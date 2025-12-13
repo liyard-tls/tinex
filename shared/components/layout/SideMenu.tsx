@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   X,
+  Heart,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 
@@ -29,6 +30,7 @@ const mainMenuItems = [
   { href: '/dashboard', icon: Home, label: 'Home' },
   { href: '/accounts', icon: Wallet, label: 'Accounts' },
   { href: '/budgets', icon: PieChart, label: 'Budgets' },
+  { href: '/wishlists', icon: Heart, label: 'Wishlists' },
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { href: '/import', icon: Upload, label: 'Import' },
