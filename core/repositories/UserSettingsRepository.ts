@@ -37,6 +37,7 @@ class UserSettingsRepository {
         id: docSnap.id,
         userId: data.userId,
         baseCurrency: data.baseCurrency,
+        activeAnalyticsPresetId: data.activeAnalyticsPresetId,
         createdAt: data.createdAt as Timestamp,
         updatedAt: data.updatedAt as Timestamp,
       };
@@ -110,6 +111,10 @@ class UserSettingsRepository {
 
       if (input.baseCurrency !== undefined) {
         data.baseCurrency = input.baseCurrency;
+      }
+
+      if (input.activeAnalyticsPresetId !== undefined) {
+        data.activeAnalyticsPresetId = input.activeAnalyticsPresetId;
       }
 
       await updateDoc(docRef, data);

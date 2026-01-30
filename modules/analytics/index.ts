@@ -4,6 +4,7 @@
  */
 
 export { default as SpendingInsights } from './SpendingInsights';
+export { default as PresetSelector } from './PresetSelector';
 export {
   analyzeSpendingTrend,
   findPeakWeek,

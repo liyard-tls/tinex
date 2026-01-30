@@ -9,6 +9,7 @@ export interface UserSettings {
   id: string; // Document ID (same as userId)
   userId: string;
   baseCurrency: Currency; // Main currency for displaying totals and analytics
+  activeAnalyticsPresetId?: string; // Currently selected analytics preset (null = All Categories)
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -25,4 +26,5 @@ export interface CreateUserSettingsInput {
  */
 export interface UpdateUserSettingsInput {
   baseCurrency?: Currency;
+  activeAnalyticsPresetId?: string | null;
 }

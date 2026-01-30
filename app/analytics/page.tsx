@@ -24,7 +24,9 @@ import { transactionRepository } from '@/core/repositories/TransactionRepository
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
-import { Transaction, Category, Account, UserSettings, Currency, SYSTEM_CATEGORIES } from '@/core/models';
+import { analyticsPresetRepository } from '@/core/repositories/AnalyticsPresetRepository';
+import { Transaction, Category, Account, UserSettings, Currency, SYSTEM_CATEGORIES, AnalyticsPreset, ALL_CATEGORIES_PRESET_ID } from '@/core/models';
+import { PresetSelector } from '@/modules/analytics';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
@@ -67,6 +69,8 @@ function AnalyticsContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [presets, setPresets] = useState<AnalyticsPreset[]>([]);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [chartSource, setChartSource] = useState<'total' | string>('total'); // 'total' or accountId
   const [showChart, setShowChart] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -125,19 +129,89 @@ function AnalyticsContent() {
 
   const loadData = async (userId: string) => {
     try {
-      const [txns, userCategories, userAccounts, settings] = await Promise.all([
+      const [txns, userCategories, userAccounts, settings, userPresets] = await Promise.all([
         transactionRepository.getByUserId(userId),
         categoryRepository.getByUserId(userId),
         accountRepository.getByUserId(userId),
         userSettingsRepository.getOrCreate(userId),
+        analyticsPresetRepository.getByUserId(userId),
       ]);
 
       setTransactions(txns);
       setCategories(userCategories);
       setAccounts(userAccounts);
       setUserSettings(settings);
+      setPresets(userPresets);
+
+      // Set active preset from user settings
+      if (settings.activeAnalyticsPresetId && settings.activeAnalyticsPresetId !== ALL_CATEGORIES_PRESET_ID) {
+        setActivePresetId(settings.activeAnalyticsPresetId);
+      } else {
+        setActivePresetId(null);
+      }
     } catch (error) {
       console.error('Failed to load analytics data:', error);
+    }
+  };
+
+  // Preset handlers
+  const handleSelectPreset = async (presetId: string | null) => {
+    if (!user) return;
+    setActivePresetId(presetId);
+    try {
+      await userSettingsRepository.update(user.uid, {
+        activeAnalyticsPresetId: presetId || ALL_CATEGORIES_PRESET_ID,
+      });
+    } catch (error) {
+      console.error('Failed to update active preset:', error);
+    }
+  };
+
+  const handleCreatePreset = async (name: string, categoryIds: string[]) => {
+    if (!user) return;
+    try {
+      const presetId = await analyticsPresetRepository.create(user.uid, { name, categoryIds });
+      const newPreset: AnalyticsPreset = {
+        id: presetId,
+        userId: user.uid,
+        name,
+        categoryIds,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      setPresets((prev) => [...prev, newPreset]);
+      // Automatically select the new preset
+      await handleSelectPreset(presetId);
+    } catch (error) {
+      console.error('Failed to create preset:', error);
+      throw error;
+    }
+  };
+
+  const handleUpdatePreset = async (id: string, name: string, categoryIds: string[]) => {
+    try {
+      await analyticsPresetRepository.update({ id, name, categoryIds });
+      setPresets((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, name, categoryIds, updatedAt: new Date() } : p))
+      );
+    } catch (error) {
+      console.error('Failed to update preset:', error);
+      throw error;
+    }
+  };
+
+  const handleDeletePreset = async (id: string) => {
+    if (!user) return;
+    try {
+      await analyticsPresetRepository.delete(id);
+      setPresets((prev) => prev.filter((p) => p.id !== id));
+      // If deleting the active preset, switch to All Categories
+      if (activePresetId === id) {
+        await handleSelectPreset(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete preset:', error);
+      throw error;
     }
   };
 
@@ -177,6 +251,13 @@ function AnalyticsContent() {
     return `${startStr} - ${endStr}`;
   };
 
+  // Get active preset category IDs
+  const activePresetCategoryIds = useMemo(() => {
+    if (!activePresetId) return null; // null means all categories
+    const preset = presets.find((p) => p.id === activePresetId);
+    return preset?.categoryIds || null;
+  }, [activePresetId, presets]);
+
   // Filter transactions by current week - use useMemo to prevent recreating array
   const { start, end } = currentWeek;
   const periodTransactions = useMemo(() => {
@@ -198,9 +279,14 @@ function AnalyticsContent() {
       // Exclude if transaction belongs to system transfer category
       if (systemCategoryIds.includes(txn.categoryId)) return false;
 
+      // Filter by preset categories if a preset is active
+      if (activePresetCategoryIds && !activePresetCategoryIds.includes(txn.categoryId)) {
+        return false;
+      }
+
       return isInPeriod;
     });
-  }, [transactions, start, end, categories]);
+  }, [transactions, start, end, categories, activePresetCategoryIds]);
 
   // Calculate ignored transactions (excluded from analytics)
   const ignoredTransactions = useMemo(() => {
@@ -577,6 +663,17 @@ function AnalyticsContent() {
       </header>
 
       <main className="px-4 py-4 space-y-4 pb-32">
+        {/* Preset Selector */}
+        <PresetSelector
+          presets={presets}
+          activePresetId={activePresetId}
+          categories={categories}
+          onSelectPreset={handleSelectPreset}
+          onCreatePreset={handleCreatePreset}
+          onUpdatePreset={handleUpdatePreset}
+          onDeletePreset={handleDeletePreset}
+        />
+
         {/* Balance Trend Chart */}
         {showChart && chartData.length > 0 && (
           <Card>

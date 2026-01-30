@@ -28,6 +28,7 @@ export const FIREBASE_COLLECTIONS = {
   TAGS: 'tags',
   WISHLISTS: 'wishlists',
   WISHLIST_ITEMS: 'wishlistItems',
+  ANALYTICS_PRESETS: 'analyticsPresets',
 } as const;
 
 export const DATE_FORMATS = {
