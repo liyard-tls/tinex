@@ -10,3 +10,4 @@ export * from './tag';
 export * from './user-settings';
 export * from './wishlist';
 export * from './AnalyticsPreset';
+export * from './ChatMessage';

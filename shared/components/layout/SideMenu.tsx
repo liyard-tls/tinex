@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { signOut } from 'firebase/auth';
+import { usePathname } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import {
   Home,
@@ -15,11 +15,12 @@ import {
   FolderOpen,
   Tag,
   Settings,
-  LogOut,
   X,
   Heart,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
+import { AIChatSidebar } from '@/modules/ai-chat';
 
 interface SideMenuProps {
   isOpen: boolean;
@@ -44,7 +45,16 @@ const otherMenuItems = [
 
 export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // Get current user
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUserId(user?.uid || null);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Close menu on route change
   useEffect(() => {
@@ -127,6 +137,23 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
             {/* Divider */}
             <div className="border-t border-border my-2" />
 
+            {/* AI Assistant Button */}
+            <div className="px-4">
+              <button
+                onClick={() => {
+                  onClose();
+                  setShowAIChat(true);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors bg-gradient-to-r from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-primary border border-primary/20"
+              >
+                <Sparkles className="h-5 w-5" />
+                <span className="font-medium">AI Assistant</span>
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-border my-2" />
+
             {/* Other Section */}
             <div className="p-4">
               <div className="space-y-1">
@@ -156,6 +183,13 @@ export default function SideMenu({ isOpen, onClose }: SideMenuProps) {
 
         </div>
       </div>
+
+      {/* AI Chat Sidebar */}
+      <AIChatSidebar
+        isOpen={showAIChat}
+        onClose={() => setShowAIChat(false)}
+        userId={userId}
+      />
     </>
   );
 }

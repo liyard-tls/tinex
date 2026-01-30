@@ -29,6 +29,7 @@ export const FIREBASE_COLLECTIONS = {
   WISHLISTS: 'wishlists',
   WISHLIST_ITEMS: 'wishlistItems',
   ANALYTICS_PRESETS: 'analyticsPresets',
+  CHAT_MESSAGES: 'chatMessages',
 } as const;
 
 export const DATE_FORMATS = {
