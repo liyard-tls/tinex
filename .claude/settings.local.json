@@ -16,7 +16,9 @@
       "Bash(if grep -q \"^const ICONS = {\" \"$file\")",
       "Bash(fi:*)",
       "Bash(done)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

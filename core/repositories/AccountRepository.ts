@@ -36,6 +36,7 @@ export class AccountRepository {
     if (input.color) account.color = input.color;
     if (input.icon) account.icon = input.icon;
     if (input.notes) account.notes = input.notes;
+    if (input.isSaving !== undefined) account.isSaving = input.isSaving;
 
     const docRef = await addDoc(collection(db, this.collectionName), account);
 
@@ -174,6 +175,7 @@ export class AccountRepository {
       color: data.color,
       icon: data.icon,
       isDefault: data.isDefault || false,
+      isSaving: data.isSaving || false,
       notes: data.notes,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),

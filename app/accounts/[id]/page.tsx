@@ -1,5 +1,5 @@
 'use client';
-import { MoreHorizontal, ArrowLeft, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { MoreHorizontal, ArrowLeft, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
@@ -87,6 +87,20 @@ export default function AccountDetailPage() {
       await loadAccountData(accountId, user.uid);
     } catch (error) {
       console.error('Failed to set default account:', error);
+    }
+  };
+
+  const handleToggleSaving = async () => {
+    if (!user || !account) return;
+
+    try {
+      await accountRepository.update({
+        id: account.id,
+        isSaving: !account.isSaving,
+      });
+      await loadAccountData(accountId, user.uid);
+    } catch (error) {
+      console.error('Failed to toggle saving status:', error);
     }
   };
 
@@ -238,13 +252,18 @@ export default function AccountDetailPage() {
                 <span>Expenses: {getCurrencySymbol(account.currency)}{getExpenseTotal().toFixed(2)}</span>
               </div>
             </div>
-            {account.isDefault && (
-              <div className="mt-3">
+            <div className="mt-3 flex flex-wrap gap-2">
+              {account.isDefault && (
                 <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary">
                   Default Account
                 </span>
-              </div>
-            )}
+              )}
+              {account.isSaving && (
+                <span className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-500">
+                  Saving Account
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
 
@@ -295,6 +314,14 @@ export default function AccountDetailPage() {
                 Set as Default Account
               </Button>
             )}
+            <Button
+              variant="outline"
+              className={`w-full justify-start ${account.isSaving ? 'text-amber-500 hover:text-amber-500' : ''}`}
+              onClick={handleToggleSaving}
+            >
+              <PiggyBank className="h-4 w-4 mr-2" />
+              {account.isSaving ? 'Remove from Savings' : 'Mark as Saving Account'}
+            </Button>
             <Button
               variant="outline"
               className="w-full justify-start text-destructive hover:text-destructive"

@@ -5,16 +5,24 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
-import { Card, CardContent, CardTitle } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import TransactionListItem from '@/shared/components/ui/TransactionListItem';
-import { Filter, X, MoreHorizontal, ArrowLeft } from 'lucide-react';
+import { Filter, X, MoreHorizontal, ArrowLeft, Loader2 } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { Transaction, Category, Tag, Account, SYSTEM_CATEGORIES } from '@/core/models';
-import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
 
 function TransactionsContent() {
@@ -25,7 +33,7 @@ function TransactionsContent() {
   const [tags, setTags] = useState<Tag[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
-  const [showCategoryPanel, setShowCategoryPanel] = useState(false);
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,9 +76,9 @@ function TransactionsContent() {
   };
 
   const handleCategoryIconClick = (e: React.MouseEvent, txn: Transaction) => {
-    e.stopPropagation(); // Prevent navigation to transaction detail
+    e.stopPropagation();
     setSelectedTransaction(txn);
-    setShowCategoryPanel(true);
+    setShowCategorySheet(true);
   };
 
   const handleCategoryChange = async (categoryId: string) => {
@@ -81,7 +89,7 @@ function TransactionsContent() {
         id: selectedTransaction.id,
         categoryId: categoryId,
       });
-      setShowCategoryPanel(false);
+      setShowCategorySheet(false);
       setSelectedTransaction(null);
       await loadData(user.uid);
     } catch (error) {
@@ -97,34 +105,29 @@ function TransactionsContent() {
   const showIgnored = searchParams.get('ignored') === 'true';
 
   const filteredTransactions = transactions.filter((txn) => {
-    // Apply ignored filter from URL
     if (showIgnored) {
-      // Get system category IDs (Transfer Out, Transfer In)
       const systemCategoryIds = categories
-        .filter(cat =>
-          cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
-          cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
+        .filter(
+          (cat) =>
+            cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+            cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
         )
-        .map(cat => cat.id);
+        .map((cat) => cat.id);
 
-      // Only show transactions that are excluded from analytics
       const isIgnored = txn.excludeFromAnalytics || systemCategoryIds.includes(txn.categoryId);
       if (!isIgnored) {
         return false;
       }
     }
 
-    // Apply type filter
     if (filterType !== 'all' && txn.type !== filterType) {
       return false;
     }
 
-    // Apply category filter from URL
     if (urlCategoryId && txn.categoryId !== urlCategoryId) {
       return false;
     }
 
-    // Apply date range filter from URL
     if (urlStartDate && urlEndDate) {
       const txnDate = new Date(txn.date);
       const startDate = new Date(urlStartDate);
@@ -138,25 +141,28 @@ function TransactionsContent() {
   });
 
   // Group transactions by date
-  const groupedTransactions = filteredTransactions.reduce((groups, txn) => {
-    const date = new Date(txn.date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(txn);
-    return groups;
-  }, {} as Record<string, Transaction[]>);
+  const groupedTransactions = filteredTransactions.reduce(
+    (groups, txn) => {
+      const date = new Date(txn.date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(txn);
+      return groups;
+    },
+    {} as Record<string, Transaction[]>
+  );
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-          <p className="text-sm text-muted-foreground">Loading...</p>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground">Loading transactions...</p>
         </div>
       </div>
     );
@@ -164,9 +170,8 @@ function TransactionsContent() {
 
   if (!user) return null;
 
-  // Check if filters are active
   const hasActiveFilters = urlCategoryId || (urlStartDate && urlEndDate) || showIgnored;
-  const filteredCategory = urlCategoryId ? categories.find(c => c.id === urlCategoryId) : null;
+  const filteredCategory = urlCategoryId ? categories.find((c) => c.id === urlCategoryId) : null;
 
   const clearFilters = () => {
     if (returnTo) {
@@ -178,64 +183,64 @@ function TransactionsContent() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+        <div className="container flex h-14 max-w-screen-2xl items-center px-4">
+          <div className="flex items-center gap-3 flex-1">
             {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={clearFilters}
-              >
+              <Button variant="ghost" size="icon" onClick={clearFilters}>
                 <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Go back</span>
               </Button>
             )}
             <div className="flex-1">
-              <h1 className="text-xl font-bold">All Transactions</h1>
+              <h1 className="text-lg font-semibold md:text-xl">All Transactions</h1>
               <p className="text-xs text-muted-foreground">
-                {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
+                {filteredTransactions.length} transaction
+                {filteredTransactions.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="px-4 py-4 space-y-4">
-        {/* Active Filter Indicator */}
+      <main className="container max-w-screen-2xl px-4 py-6 space-y-6">
+        {/* Active Filter Banner */}
         {hasActiveFilters && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 flex items-center justify-between">
-            <div className="flex-1">
-              <p className="text-sm font-medium">Filtered View</p>
-              {showIgnored && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Ignored transactions only
-                </p>
-              )}
-              {filteredCategory && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Category: {filteredCategory.name}
-                </p>
-              )}
-              {urlStartDate && urlEndDate && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {new Date(urlStartDate).toLocaleDateString()} - {new Date(urlEndDate).toLocaleDateString()}
-                </p>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="gap-2"
-            >
-              <X className="h-4 w-4" />
-              Clear
-            </Button>
-          </div>
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1 flex-1">
+                  <p className="text-sm font-medium">Filtered View</p>
+                  <div className="flex flex-wrap gap-2">
+                    {showIgnored && (
+                      <Badge variant="secondary" className="text-xs">
+                        Ignored only
+                      </Badge>
+                    )}
+                    {filteredCategory && (
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredCategory.name}
+                      </Badge>
+                    )}
+                    {urlStartDate && urlEndDate && (
+                      <Badge variant="secondary" className="text-xs">
+                        {new Date(urlStartDate).toLocaleDateString()} -{' '}
+                        {new Date(urlEndDate).toLocaleDateString()}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-2" />
+                  Clear
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
-        {/* Filter Buttons */}
+        {/* Filter Tabs */}
         <div className="flex gap-2">
           <Button
             variant={filterType === 'all' ? 'default' : 'outline'}
@@ -266,10 +271,10 @@ function TransactionsContent() {
         {/* Transactions List */}
         {filteredTransactions.length === 0 ? (
           <Card>
-            <CardContent className="text-center py-12">
-              <Filter className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <CardTitle className="mb-2">No Transactions</CardTitle>
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <Filter className="h-16 w-16 text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Transactions</h3>
+              <p className="text-sm text-muted-foreground max-w-sm">
                 {filterType === 'all'
                   ? 'Start adding transactions to see them here'
                   : `No ${filterType} transactions found`}
@@ -279,41 +284,43 @@ function TransactionsContent() {
         ) : (
           <div className="space-y-6">
             {Object.entries(groupedTransactions).map(([date, txns]) => (
-              <div key={date}>
-                <h2 className="text-sm font-semibold text-muted-foreground mb-2 px-1">{date}</h2>
+              <div key={date} className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-sm font-semibold text-muted-foreground">{date}</h2>
+                  <Separator className="flex-1" />
+                </div>
                 <Card>
-                  <CardContent className="p-0">
-                    <div className="divide-y divide-border">
-                      {txns.map((txn) => {
-                        const category = categories.find((c) => c.id === txn.categoryId);
-                        const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
+                  <CardContent className="p-0 divide-y">
+                    {txns.map((txn) => {
+                      const category = categories.find((c) => c.id === txn.categoryId);
+                      const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
 
-                        return (
-                          <TransactionListItem
-                            key={txn.id}
-                            transaction={txn}
-                            category={category}
-                            tags={transactionTags}
-                            accountName={getAccountName(txn.accountId)}
-                            onClick={() => {
-                              // Build return URL with current filters
-                              const params = new URLSearchParams();
-                              if (urlCategoryId) params.set('categoryId', urlCategoryId);
-                              if (urlStartDate) params.set('startDate', urlStartDate);
-                              if (urlEndDate) params.set('endDate', urlEndDate);
-                              if (returnTo) params.set('returnTo', returnTo);
+                      return (
+                        <TransactionListItem
+                          key={txn.id}
+                          transaction={txn}
+                          category={category}
+                          tags={transactionTags}
+                          accountName={getAccountName(txn.accountId)}
+                          onClick={() => {
+                            const params = new URLSearchParams();
+                            if (urlCategoryId) params.set('categoryId', urlCategoryId);
+                            if (urlStartDate) params.set('startDate', urlStartDate);
+                            if (urlEndDate) params.set('endDate', urlEndDate);
+                            if (returnTo) params.set('returnTo', returnTo);
 
-                              const returnUrl = params.toString()
-                                ? `/transactions?${params.toString()}`
-                                : '/transactions';
+                            const returnUrl = params.toString()
+                              ? `/transactions?${params.toString()}`
+                              : '/transactions';
 
-                              router.push(`/transactions/${txn.id}?returnTo=${encodeURIComponent(returnUrl)}`);
-                            }}
-                            onCategoryIconClick={handleCategoryIconClick}
-                          />
-                        );
-                      })}
-                    </div>
+                            router.push(
+                              `/transactions/${txn.id}?returnTo=${encodeURIComponent(returnUrl)}`
+                            );
+                          }}
+                          onCategoryIconClick={handleCategoryIconClick}
+                        />
+                      );
+                    })}
                   </CardContent>
                 </Card>
               </div>
@@ -322,83 +329,54 @@ function TransactionsContent() {
         )}
       </main>
 
-      {/* Category Selection Side Panel */}
-      {showCategoryPanel && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => {
-              setShowCategoryPanel(false);
-              setSelectedTransaction(null);
-            }}
-          />
-          {/* Panel */}
-          <div className="fixed right-0 top-0 bottom-0 w-80 bg-background border-l border-border z-50 shadow-xl animate-in slide-in-from-right">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold">Change Category</h3>
-                {selectedTransaction && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {selectedTransaction.description}
-                  </p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => {
-                  setShowCategoryPanel(false);
-                  setSelectedTransaction(null);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="p-4 space-y-2 overflow-y-auto max-h-[calc(100vh-80px)]">
-              {categories.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No categories available
-                </p>
-              ) : (
-                categories.map((cat) => {
-                  const CatIcon = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
-                  const isSelected = selectedTransaction?.categoryId === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => handleCategoryChange(cat.id)}
-                      className={cn(
-                        'w-full flex items-center gap-3 p-3 rounded-md transition-colors text-left',
-                        isSelected
-                          ? 'bg-primary/20 ring-2 ring-primary'
-                          : 'hover:bg-muted/50'
-                      )}
+      {/* Category Selection Sheet */}
+      <Sheet open={showCategorySheet} onOpenChange={setShowCategorySheet}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Change Category</SheetTitle>
+            {selectedTransaction && (
+              <SheetDescription className="truncate">{selectedTransaction.description}</SheetDescription>
+            )}
+          </SheetHeader>
+          <div className="mt-6 space-y-2">
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                No categories available
+              </p>
+            ) : (
+              categories.map((cat) => {
+                const CatIcon =
+                  CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
+                const isSelected = selectedTransaction?.categoryId === cat.id;
+                return (
+                  <Button
+                    key={cat.id}
+                    variant={isSelected ? 'secondary' : 'ghost'}
+                    className="w-full justify-start h-auto py-3"
+                    onClick={() => handleCategoryChange(cat.id)}
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center mr-3"
+                      style={{ backgroundColor: `${cat.color}20` }}
                     >
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${cat.color}20` }}
-                      >
-                        <CatIcon className="h-5 w-5" style={{ color: cat.color }} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{cat.name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{cat.type}</p>
-                      </div>
-                      {isSelected && (
-                        <span className="text-xs px-2 py-1 rounded bg-primary/20 text-primary">
-                          Current
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                      <CatIcon className="h-5 w-5" style={{ color: cat.color }} />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium">{cat.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{cat.type}</p>
+                    </div>
+                    {isSelected && (
+                      <Badge variant="outline" className="ml-2">
+                        Current
+                      </Badge>
+                    )}
+                  </Button>
+                );
+              })
+            )}
           </div>
-        </>
-      )}
+        </SheetContent>
+      </Sheet>
 
       <BottomNav />
     </div>
@@ -407,14 +385,16 @@ function TransactionsContent() {
 
 export default function TransactionsPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-          <p className="text-sm text-muted-foreground">Loading...</p>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <TransactionsContent />
     </Suspense>
   );

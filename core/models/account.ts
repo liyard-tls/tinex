@@ -11,6 +11,7 @@ export interface Account {
   color?: string;
   icon?: string;
   isDefault: boolean;
+  isSaving?: boolean;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -24,6 +25,7 @@ export interface CreateAccountInput {
   color?: string;
   icon?: string;
   isDefault?: boolean;
+  isSaving?: boolean;
   notes?: string;
 }
 
@@ -36,6 +38,7 @@ export interface UpdateAccountInput {
   color?: string;
   icon?: string;
   isDefault?: boolean;
+  isSaving?: boolean;
   notes?: string;
 }
 

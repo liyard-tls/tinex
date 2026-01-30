@@ -127,6 +127,20 @@ export default function AddAccountForm({ onSubmit, onCancel }: AddAccountFormPro
         </label>
       </div>
 
+      {/* Saving Account Checkbox */}
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="isSaving"
+          {...register('isSaving')}
+          className="h-4 w-4 rounded border-input"
+          disabled={loading}
+        />
+        <label htmlFor="isSaving" className="text-sm">
+          Saving account (excluded from available balance)
+        </label>
+      </div>
+
       {/* Notes (optional) */}
       <div>
         <label className="text-xs font-medium mb-1.5 block">Notes (Optional)</label>
