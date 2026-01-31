@@ -14,6 +14,7 @@ import BottomNav from "@/shared/components/layout/BottomNav";
 import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
 import TransactionListItem from "@/shared/components/ui/TransactionListItem";
+import WhatsNewPopup from "@/shared/components/ui/WhatsNewPopup";
 
 import { transactionRepository } from "@/core/repositories/TransactionRepository";
 import { accountRepository } from "@/core/repositories/AccountRepository";
@@ -549,6 +550,9 @@ export default function DashboardPage() {
       </Dialog>
 
       <BottomNav />
+
+      {/* What's New Popup */}
+      {user && <WhatsNewPopup userId={user.uid} />}
     </div>
   );
 }

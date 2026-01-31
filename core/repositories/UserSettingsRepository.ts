@@ -38,6 +38,7 @@ class UserSettingsRepository {
         userId: data.userId,
         baseCurrency: data.baseCurrency,
         activeAnalyticsPresetId: data.activeAnalyticsPresetId,
+        seenVersion: data.seenVersion,
         createdAt: data.createdAt as Timestamp,
         updatedAt: data.updatedAt as Timestamp,
       };
@@ -115,6 +116,10 @@ class UserSettingsRepository {
 
       if (input.activeAnalyticsPresetId !== undefined) {
         data.activeAnalyticsPresetId = input.activeAnalyticsPresetId;
+      }
+
+      if (input.seenVersion !== undefined) {
+        data.seenVersion = input.seenVersion;
       }
 
       await updateDoc(docRef, data);

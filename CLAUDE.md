@@ -513,3 +513,60 @@ Settings submenu links:
 - Mobile-first responsive design
 - Lucide React for icons
 - Shared components in `shared/components/ui/`
+
+## Version & Changelog System
+
+The app has a versioning system with "What's New" popup for users.
+
+### Files
+
+- `shared/config/version.ts` - Version number and changelog data
+- `shared/components/ui/WhatsNewPopup.tsx` - Popup component
+- `app/changelog/page.tsx` - Full changelog page
+
+### How to Release a New Version
+
+1. **Update version** in `shared/config/version.ts`:
+
+   ```typescript
+   export const APP_VERSION = '1.1.0'; // Change this
+   ```
+
+2. **Add changelog entry** at the TOP of `CHANGELOG` array:
+
+   ```typescript
+   export const CHANGELOG: ChangelogEntry[] = [
+     {
+       version: '1.1.0',
+       date: '2025-02-15', // YYYY-MM-DD format
+       title: 'Short Title',
+       changes: [
+         { type: 'feature', text: 'New feature description', isHighlight: true },
+         { type: 'improvement', text: 'Improvement description' },
+         { type: 'fix', text: 'Bug fix description' },
+         { type: 'breaking', text: 'Breaking change (rare)' },
+       ],
+     },
+     // ... previous versions below
+   ];
+   ```
+
+3. **Mark highlights**: Add `isHighlight: true` to 3-5 most important changes that will show in the popup
+
+### Change Types
+
+- `feature` - New functionality (green "New" badge)
+- `improvement` - Enhancement to existing feature (blue "Improved" badge)
+- `fix` - Bug fix (amber "Fixed" badge)
+- `breaking` - Breaking change, use sparingly (red "Changed" badge)
+
+### Testing
+
+To test the "What's New" popup without changing version:
+
+```javascript
+// In browser console on /dashboard page:
+window.__showWhatsNew?.()
+```
+
+Or clear seenVersion in Firebase to trigger popup on next load.

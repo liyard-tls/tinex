@@ -18,6 +18,7 @@ import {
   X,
   Heart,
   Sparkles,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { AIChatSidebar } from '@/modules/ai-chat';
@@ -40,6 +41,7 @@ const mainMenuItems = [
 const otherMenuItems = [
   { href: '/categories', icon: FolderOpen, label: 'Categories' },
   { href: '/tags', icon: Tag, label: 'Tags' },
+  { href: '/changelog', icon: FileText, label: 'Changelog' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
