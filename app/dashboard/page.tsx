@@ -256,7 +256,7 @@ export default function DashboardPage() {
     try {
       await transactionRepository.create(user.uid, data, currency);
       await loadData(user.uid);
-      setShowAddTransaction(false);
+      // Don't close the form - user may want to add more transactions
       setShowQuickActions(false);
     } catch (error) {
       console.error("Failed to add transaction:", error);

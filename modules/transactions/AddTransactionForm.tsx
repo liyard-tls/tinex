@@ -1,19 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/shared/components/ui';
 import Input from '@/shared/components/ui/Input';
 import AccountSelect from '@/shared/components/ui/AccountSelect';
-import { CreateTransactionInput, TransactionType, Account, Category, Tag } from '@/core/models';
+import { CreateTransactionInput, TransactionType, Account, Category, Tag, Transaction } from '@/core/models';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
+import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { CURRENCIES } from '@/core/models/account';
 import { cn } from '@/shared/utils/cn';
 import { X, MoreHorizontal } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
+import { detectCategoryFromDescription, matchCategoryByName } from '@/shared/utils/categoryMatcher';
+import Toast from '@/shared/components/ui/Toast';
 
 interface AddTransactionFormProps {
   onSubmit: (data: CreateTransactionInput, currency: string) => Promise<void>;
@@ -31,6 +35,9 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [existingTransactions, setExistingTransactions] = useState<Transaction[]>([]);
+  const [categoryManuallySelected, setCategoryManuallySelected] = useState(false);
 
   const {
     register,
@@ -40,17 +47,19 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
     setValue,
   } = useForm<CreateTransactionInput & { time?: string }>();
 
-  // Load categories and tags
+  // Load categories, tags and existing transactions
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         try {
-          const [userCategories, userTags] = await Promise.all([
+          const [userCategories, userTags, userTransactions] = await Promise.all([
             categoryRepository.getByUserId(currentUser.uid),
             tagRepository.getByUserId(currentUser.uid),
+            transactionRepository.getByUserId(currentUser.uid),
           ]);
           setCategories(userCategories);
           setTags(userTags);
+          setExistingTransactions(userTransactions);
         } catch (error) {
           console.error('Failed to load categories and tags:', error);
         }
@@ -78,6 +87,48 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
     }
   };
 
+  // Auto-suggest category based on description
+  const handleDescriptionChange = useCallback((description: string) => {
+    // Only auto-suggest if user hasn't manually selected a category
+    if (categoryManuallySelected || !description || description.length < 3) {
+      return;
+    }
+
+    // Only suggest for income/expense, not transfer
+    if (type !== 'income' && type !== 'expense') {
+      return;
+    }
+
+    // First try to match by category name (higher priority for direct name matches)
+    let suggestedCategoryId = matchCategoryByName(
+      description,
+      categories,
+      type
+    );
+
+    // If no match from category names, try to match by existing transactions
+    if (!suggestedCategoryId) {
+      suggestedCategoryId = detectCategoryFromDescription(
+        description,
+        type,
+        existingTransactions
+      );
+    }
+
+    if (suggestedCategoryId) {
+      setSelectedCategoryId(suggestedCategoryId);
+      setValue('categoryId', suggestedCategoryId, { shouldValidate: true });
+    }
+  }, [categoryManuallySelected, type, existingTransactions, categories, setValue]);
+
+  // Handle manual category selection
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setValue('categoryId', categoryId, { shouldValidate: true });
+    setShowCategoryDropdown(false);
+    setCategoryManuallySelected(true);
+  };
+
   const handleFormSubmit = async (data: any) => {
     setLoading(true);
     try {
@@ -97,8 +148,33 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         },
         selectedCurrency
       );
+
+      // Show success message (Toast component handles auto-close)
+      setSuccessMessage('Transaction added successfully!');
+
+      // Reset form but keep account selected
+      const currentAccount = selectedAccountId;
+      const currentCurrency = selectedCurrency;
       reset();
       setSelectedTags([]);
+      setSelectedCategoryId('');
+      setCategoryManuallySelected(false);
+      setSelectedAccountId(currentAccount);
+      setSelectedCurrency(currentCurrency);
+      setValue('accountId', currentAccount);
+
+      // Set default date and time for next transaction
+      // Note: form expects string format for date input, but type expects Date
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setValue('date', new Date().toISOString().split('T')[0] as any);
+      setValue('time', new Date().toTimeString().slice(0, 5));
+
+      // Reload transactions for better category suggestions
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        const updatedTransactions = await transactionRepository.getByUserId(currentUser.uid);
+        setExistingTransactions(updatedTransactions);
+      }
     } catch (error) {
       console.error('Failed to add transaction:', error);
     } finally {
@@ -116,12 +192,27 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
   const currencySymbol = CURRENCIES.find((c) => c.value === selectedCurrency)?.symbol || '$';
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
-      {/* Type Toggle */}
+    <>
+      {/* Success Notification - Rendered via portal outside the form */}
+      {successMessage && typeof document !== 'undefined' && createPortal(
+        <Toast
+          message={successMessage}
+          type="success"
+          onClose={() => setSuccessMessage(null)}
+        />,
+        document.body
+      )}
+
+      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+        {/* Type Toggle */}
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setType('expense')}
+          onClick={() => {
+            setType('expense');
+            setCategoryManuallySelected(false);
+            setSelectedCategoryId('');
+          }}
           className={cn(
             'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
             type === 'expense'
@@ -133,7 +224,11 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         </button>
         <button
           type="button"
-          onClick={() => setType('income')}
+          onClick={() => {
+            setType('income');
+            setCategoryManuallySelected(false);
+            setSelectedCategoryId('');
+          }}
           className={cn(
             'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
             type === 'income'
@@ -180,6 +275,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
           placeholder="e.g., Grocery shopping"
           {...register('description', {
             required: 'Description is required',
+            onChange: (e) => handleDescriptionChange(e.target.value),
           })}
           error={errors.description?.message}
           disabled={loading}
@@ -240,11 +336,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
                 <button
                   key={cat.id}
                   type="button"
-                  onClick={() => {
-                    setSelectedCategoryId(cat.id);
-                    setValue('categoryId', cat.id, { shouldValidate: true });
-                    setShowCategoryDropdown(false);
-                  }}
+                  onClick={() => handleCategorySelect(cat.id)}
                   className={cn(
                     "flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors",
                     selectedCategoryId === cat.id && "bg-muted"
@@ -363,7 +455,8 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         <Button type="submit" className="flex-1" isLoading={loading} disabled={loading}>
           Add Transaction
         </Button>
-      </div>
-    </form>
+        </div>
+      </form>
+    </>
   );
 }

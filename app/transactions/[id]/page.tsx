@@ -167,11 +167,15 @@ export default function TransactionDetailPage() {
     setDeleting(true);
     try {
       await transactionRepository.delete(transactionId);
-      router.push(returnTo || "/transactions");
+      // Navigate back to previous page after successful deletion
+      if (returnTo) {
+        router.push(returnTo);
+      } else {
+        router.back();
+      }
     } catch (error) {
       console.error("Failed to delete transaction:", error);
       alert("Failed to delete transaction");
-    } finally {
       setDeleting(false);
     }
   };

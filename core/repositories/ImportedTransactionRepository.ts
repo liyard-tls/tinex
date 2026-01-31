@@ -132,6 +132,7 @@ class ImportedTransactionRepository {
 
   /**
    * Delete imported transaction record by transaction ID
+   * Silently succeeds if no record exists (not all transactions are imported)
    */
   async deleteByTransactionId(transactionId: string): Promise<void> {
     try {
@@ -141,11 +142,17 @@ class ImportedTransactionRepository {
       );
       const snapshot = await getDocs(q);
 
+      // Silently return if no imported transaction record exists
+      if (snapshot.empty) {
+        return;
+      }
+
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
     } catch (error) {
-      console.error('Error deleting imported transaction by transactionId:', error);
-      throw error;
+      // Log but don't throw - this is a cleanup operation
+      // The main transaction deletion should still succeed
+      console.warn('Error deleting imported transaction record (non-critical):', error);
     }
   }
 

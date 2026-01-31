@@ -16,7 +16,7 @@ import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { Category, CURRENCIES } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
-import { detectCategoryFromDescription } from '@/shared/utils/categoryMatcher';
+import { detectCategoryFromDescription, matchCategoryByName } from '@/shared/utils/categoryMatcher';
 
 // Helper function to get currency symbol
 const getCurrencySymbol = (currency: string) => {
@@ -53,7 +53,7 @@ export default function ImportPreviewPage() {
         const userCategories = await categoryRepository.getByUserId(currentUser.uid);
         setCategories(userCategories);
 
-        await loadParsedTransactions(currentUser.uid);
+        await loadParsedTransactions(currentUser.uid, userCategories);
       } else {
         router.push('/auth');
       }
@@ -64,7 +64,7 @@ export default function ImportPreviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  const loadParsedTransactions = async (userId: string) => {
+  const loadParsedTransactions = async (userId: string, userCategories: Category[]) => {
     const stored = sessionStorage.getItem('parsedTransactions');
     if (!stored) {
       router.push('/import');
@@ -79,11 +79,21 @@ export default function ImportPreviewPage() {
 
       const txns: EditableTransaction[] = data.transactions.map((t: ParsedTransaction & { date: string }, idx: number) => {
         // Auto-detect category based on description
-        const detectedCategoryId = detectCategoryFromDescription(
+        // First try to match by category name (higher priority)
+        let detectedCategoryId = matchCategoryByName(
           t.description,
-          t.type,
-          existingTransactions
+          userCategories,
+          t.type
         );
+
+        // If no match from category names, try to match by existing transactions
+        if (!detectedCategoryId) {
+          detectedCategoryId = detectCategoryFromDescription(
+            t.description,
+            t.type,
+            existingTransactions
+          );
+        }
 
         return {
           ...t,

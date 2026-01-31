@@ -1,4 +1,4 @@
-import { Transaction } from '@/core/models';
+import { Transaction, Category } from '@/core/models';
 
 /**
  * Auto-detect category for a transaction based on existing transactions
@@ -27,8 +27,12 @@ export function detectCategoryFromDescription(
     if (txnDesc === normalizedDesc) return true;
 
     // Contains match (for longer descriptions)
-    if (txnDesc.includes(normalizedDesc) || normalizedDesc.includes(txnDesc)) {
-      return true;
+    // Only match if the shorter string is at least 5 chars to avoid false positives
+    const shorterLen = Math.min(normalizedDesc.length, txnDesc.length);
+    if (shorterLen >= 5) {
+      if (txnDesc.includes(normalizedDesc) || normalizedDesc.includes(txnDesc)) {
+        return true;
+      }
     }
 
     // Word-based similarity
@@ -58,6 +62,75 @@ export function detectCategoryFromDescription(
   });
 
   return mostCommonCategory;
+}
+
+/**
+ * Match description directly with category names
+ * Uses fuzzy matching to find the best matching category
+ */
+export function matchCategoryByName(
+  description: string,
+  categories: Category[],
+  type: 'income' | 'expense'
+): string | null {
+  if (!description || categories.length === 0) {
+    return null;
+  }
+
+  const normalizedDesc = normalizeDescription(description);
+  const filteredCategories = categories.filter(cat => cat.type === type);
+
+  if (filteredCategories.length === 0) {
+    return null;
+  }
+
+  // Find best matching category
+  let bestMatch: { categoryId: string; score: number } | null = null;
+
+  for (const category of filteredCategories) {
+    const normalizedCatName = normalizeDescription(category.name);
+
+    // Exact match - highest priority
+    if (normalizedDesc === normalizedCatName || normalizedCatName === normalizedDesc) {
+      return category.id;
+    }
+
+    // Check if description contains category name or vice versa
+    if (normalizedDesc.includes(normalizedCatName)) {
+      const score = normalizedCatName.length / normalizedDesc.length;
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { categoryId: category.id, score: score + 0.5 }; // Bonus for contains match
+      }
+      continue;
+    }
+
+    if (normalizedCatName.includes(normalizedDesc)) {
+      const score = normalizedDesc.length / normalizedCatName.length;
+      if (!bestMatch || score > bestMatch.score) {
+        bestMatch = { categoryId: category.id, score: score + 0.5 };
+      }
+      continue;
+    }
+
+    // Fuzzy matching using Levenshtein distance
+    const distance = levenshteinDistance(normalizedDesc, normalizedCatName);
+    const maxLen = Math.max(normalizedDesc.length, normalizedCatName.length);
+    const similarity = 1 - (distance / maxLen);
+
+    // Only consider matches with at least 60% similarity
+    if (similarity >= 0.6) {
+      if (!bestMatch || similarity > bestMatch.score) {
+        bestMatch = { categoryId: category.id, score: similarity };
+      }
+    }
+  }
+
+  // Return best match if score is high enough (at least 60%)
+  if (bestMatch && bestMatch.score >= 0.6) {
+    return bestMatch.categoryId;
+  }
+
+  return null;
 }
 
 /**
@@ -163,8 +236,8 @@ function calculateSimilarity(str1: string, str2: string): number {
       let score = 0;
       if (w1 === w2) {
         score = 1.0; // Exact match
-      } else if (w1.includes(w2) || w2.includes(w1)) {
-        score = 0.85; // Contains match
+      } else if (Math.min(w1.length, w2.length) >= 4 && (w1.includes(w2) || w2.includes(w1))) {
+        score = 0.85; // Contains match - only if shorter word is at least 4 chars
       } else if (areWordsSimilar(w1, w2)) {
         score = 0.7; // Fuzzy match
       }
