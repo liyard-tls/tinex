@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Trash2, Sparkles, Loader2 } from 'lucide-react';
+import { X, Send, Trash2, Sparkles, Loader2, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/shared/components/ui';
 import { cn } from '@/shared/utils/cn';
@@ -24,6 +24,7 @@ export default function AIChatSidebar({ isOpen, onClose, userId }: AIChatSidebar
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load chat history
@@ -243,6 +244,16 @@ export default function AIChatSidebar({ isOpen, onClose, userId }: AIChatSidebar
     }
   };
 
+  const copyMessage = async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(messageId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy message:', error);
+    }
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -308,24 +319,63 @@ export default function AIChatSidebar({ isOpen, onClose, userId }: AIChatSidebar
               <div
                 key={message.id}
                 className={cn(
-                  'flex',
+                  'flex group',
                   message.role === 'user' ? 'justify-end' : 'justify-start'
                 )}
               >
-                <div
-                  className={cn(
-                    'max-w-[85%] rounded-lg px-3 py-2 text-sm',
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
+                <div className="flex items-start gap-1 max-w-[85%]">
+                  {message.role === 'assistant' && (
+                    <button
+                      onClick={() => copyMessage(message.id, message.content)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded mt-1 flex-shrink-0"
+                      title="Copy message"
+                    >
+                      {copiedId === message.id ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
                   )}
-                >
-                  {message.role === 'assistant' ? (
-                    <div className="prose prose-sm prose-invert max-w-none prose-p:my-3 prose-headings:my-3 prose-headings:font-semibold prose-ul:my-2 prose-ol:my-2 prose-li:my-1 prose-strong:text-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  <div
+                    className={cn(
+                      'rounded-lg px-3 py-2 text-sm',
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    )}
+                  >
+                    {message.role === 'assistant' ? (
+                      <div className="prose prose-sm prose-invert max-w-none
+                        prose-p:my-3 prose-p:leading-relaxed
+                        prose-headings:mt-4 prose-headings:mb-2 prose-headings:font-semibold
+                        prose-h3:text-base prose-h3:text-foreground
+                        prose-ul:my-3 prose-ul:pl-4
+                        prose-ol:my-3 prose-ol:pl-4
+                        prose-li:my-1 prose-li:pl-1
+                        prose-strong:text-foreground prose-strong:font-semibold
+                        prose-em:text-muted-foreground
+                        [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
+                        [&_ul]:list-disc [&_ol]:list-decimal
+                      ">
+                        <ReactMarkdown>{message.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
+                  </div>
+                  {message.role === 'user' && (
+                    <button
+                      onClick={() => copyMessage(message.id, message.content)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-muted rounded mt-1 flex-shrink-0"
+                      title="Copy message"
+                    >
+                      {copiedId === message.id ? (
+                        <Check className="h-3.5 w-3.5 text-green-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </button>
                   )}
                 </div>
               </div>

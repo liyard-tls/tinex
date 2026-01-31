@@ -49,6 +49,8 @@ IMPORTANT about categories:
 
 Rules:
 - ALWAYS respond in the same language the user writes in (detect language from their message)
+- Be CONCISE - keep responses short and to the point, avoid unnecessary words
+- Use bullet points and lists instead of long paragraphs
 - Be specific and use real numbers from the user's data
 - Format responses for easy reading (use markdown: **bold**, *italic*, lists, ### headings)
 - If there is insufficient data, say so
@@ -235,6 +237,11 @@ function buildContextMessage(context: ChatRequest['financialContext']): string {
     message += '\n';
   }
 
+  // Helper to detect transfer categories
+  const isTransfer = (categoryName: string) =>
+    categoryName.toLowerCase().includes('transfer in') ||
+    categoryName.toLowerCase().includes('transfer out');
+
   // Recent transactions summary (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -244,11 +251,6 @@ function buildContextMessage(context: ChatRequest['financialContext']): string {
   );
 
   if (recentTransactions.length > 0) {
-    // Separate transfers from real income/expenses
-    const isTransfer = (categoryName: string) =>
-      categoryName.toLowerCase().includes('transfer in') ||
-      categoryName.toLowerCase().includes('transfer out');
-
     // Calculate totals by category (excluding transfers)
     const expensesByCategory: Record<string, number> = {};
     const incomeByCategory: Record<string, number> = {};
@@ -310,7 +312,89 @@ function buildContextMessage(context: ChatRequest['financialContext']): string {
     message += '📊 No transactions in the last 30 days\n\n';
   }
 
-  // All-time transaction count
+  // All-time statistics
+  if (transactions.length > 0) {
+    const allTimeExpensesByCategory: Record<string, { total: number; count: number }> = {};
+    const allTimeIncomeByCategory: Record<string, { total: number; count: number }> = {};
+    let allTimeExpenses = 0;
+    let allTimeIncome = 0;
+
+    // Find date range
+    let oldestDate: Date | null = null;
+    let newestDate: Date | null = null;
+
+    for (const t of transactions) {
+      const transactionDate = new Date(t.date);
+      if (!oldestDate || transactionDate < oldestDate) oldestDate = transactionDate;
+      if (!newestDate || transactionDate > newestDate) newestDate = transactionDate;
+
+      if (isTransfer(t.categoryName)) continue;
+
+      if (t.type === 'expense') {
+        allTimeExpenses += t.amount;
+        if (!allTimeExpensesByCategory[t.categoryName]) {
+          allTimeExpensesByCategory[t.categoryName] = { total: 0, count: 0 };
+        }
+        allTimeExpensesByCategory[t.categoryName].total += t.amount;
+        allTimeExpensesByCategory[t.categoryName].count += 1;
+      } else {
+        allTimeIncome += t.amount;
+        if (!allTimeIncomeByCategory[t.categoryName]) {
+          allTimeIncomeByCategory[t.categoryName] = { total: 0, count: 0 };
+        }
+        allTimeIncomeByCategory[t.categoryName].total += t.amount;
+        allTimeIncomeByCategory[t.categoryName].count += 1;
+      }
+    }
+
+    // Calculate period in days and weeks
+    const periodDays = oldestDate && newestDate
+      ? Math.ceil((newestDate.getTime() - oldestDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      : 1;
+    const periodWeeks = Math.max(1, periodDays / 7);
+
+    message += `📊 ALL-TIME STATISTICS (${periodDays} days of data):\n`;
+    message += `  💵 Total income: ${allTimeIncome.toFixed(2)} ${baseCurrency}\n`;
+    message += `  💸 Total expenses: ${allTimeExpenses.toFixed(2)} ${baseCurrency}\n`;
+    message += `  📅 Period: ${oldestDate?.toLocaleDateString()} - ${newestDate?.toLocaleDateString()}\n\n`;
+
+    // All-time expense categories with weekly averages
+    const allTimeSortedExpenses = Object.entries(allTimeExpensesByCategory)
+      .map(([category, data]) => ({
+        category,
+        total: data.total,
+        count: data.count,
+        weeklyAvg: data.total / periodWeeks,
+        percentage: allTimeExpenses > 0 ? (data.total / allTimeExpenses) * 100 : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    if (allTimeSortedExpenses.length > 0) {
+      message += '📈 ALL-TIME EXPENSES BY CATEGORY (with weekly averages):\n';
+      for (const { category, total, count, weeklyAvg, percentage } of allTimeSortedExpenses) {
+        message += `  - ${category}: ${total.toFixed(2)} ${baseCurrency} (${percentage.toFixed(1)}%) | ${count} transactions | ~${weeklyAvg.toFixed(2)} ${baseCurrency}/week\n`;
+      }
+      message += '\n';
+    }
+
+    // All-time income categories
+    const allTimeSortedIncome = Object.entries(allTimeIncomeByCategory)
+      .map(([category, data]) => ({
+        category,
+        total: data.total,
+        count: data.count,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    if (allTimeSortedIncome.length > 0) {
+      message += '💰 ALL-TIME INCOME BY CATEGORY:\n';
+      for (const { category, total, count } of allTimeSortedIncome) {
+        message += `  - ${category}: ${total.toFixed(2)} ${baseCurrency} | ${count} transactions\n`;
+      }
+      message += '\n';
+    }
+  }
+
   message += `📝 Total transactions: ${transactions.length}\n`;
 
   return message;
