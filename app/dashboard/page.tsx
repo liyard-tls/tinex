@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import BottomNav from "@/shared/components/layout/BottomNav";
 import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
@@ -95,13 +94,24 @@ export default function DashboardPage() {
       const allTxns = await transactionRepository.getByUserId(userId);
       const userAccounts = await accountRepository.getByUserId(userId);
 
-      const accountsWithCount = userAccounts.map((account) => ({
-        ...account,
-        transactionCount: allTxns.filter((txn) => txn.accountId === account.id).length,
-      }));
+      // Convert all account balances to base currency for sorting
+      const accountsWithConvertedBalance = await Promise.all(
+        userAccounts.map(async (account) => {
+          const convertedBalance = await convertCurrency(
+            account.balance,
+            account.currency,
+            settings.baseCurrency
+          );
+          return {
+            ...account,
+            convertedBalance,
+          };
+        })
+      );
 
-      const sortedAccounts = accountsWithCount.sort(
-        (a, b) => b.transactionCount - a.transactionCount
+      // Sort by absolute balance value (descending)
+      const sortedAccounts = accountsWithConvertedBalance.sort(
+        (a, b) => Math.abs(b.convertedBalance) - Math.abs(a.convertedBalance)
       );
 
       setAllAccounts(sortedAccounts);
@@ -358,17 +368,21 @@ export default function DashboardPage() {
                 View All
               </Button>
             </div>
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-3 pb-4">
+            <div className="overflow-x-auto pb-2 -mx-4 px-4">
+              <div className="flex gap-3 min-w-max">
                 {allAccounts.map((account) => {
                   const AccountIcon = account.icon
                     ? CATEGORY_ICONS[account.icon as keyof typeof CATEGORY_ICONS] || Wallet
                     : Wallet;
-                  const accountColor = account.color || "#6b7280";
+                  const accountColor = account.isSaving ? "#f59e0b" : (account.color || "#6b7280");
+                  const isNegativeBalance = account.balance < 0;
 
                   return (
                     <Link key={account.id} href={`/accounts/${account.id}`} className="flex-shrink-0">
-                      <Card className="w-[160px] hover:bg-accent/50 transition-colors">
+                      <Card className={cn(
+                        "w-[160px] hover:bg-accent/50 transition-colors",
+                        account.isSaving && "border-amber-500/50 bg-amber-500/5"
+                      )}>
                         <CardContent className="p-4 space-y-3">
                           <div
                             className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto"
@@ -378,7 +392,10 @@ export default function DashboardPage() {
                           </div>
                           <div className="text-center space-y-1">
                             <p className="text-sm font-medium truncate">{account.name}</p>
-                            <p className="text-lg font-bold">
+                            <p className={cn(
+                              "text-lg font-bold",
+                              isNegativeBalance && "text-destructive"
+                            )}>
                               {getCurrencySymbol(account.currency)}
                               {account.balance.toFixed(2)}
                             </p>
@@ -389,7 +406,7 @@ export default function DashboardPage() {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
           </div>
         ) : (
           <Card className="border-destructive/50 bg-destructive/5">
