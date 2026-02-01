@@ -5,6 +5,7 @@ export { ParserFactory } from './core/ParserFactory';
 
 // Parser implementations
 export * from './implementations/csv';
+export * from './implementations/qif';
 
 // Utilities
 export * from './utils/dateNormalizer';
