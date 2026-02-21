@@ -8,7 +8,10 @@
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary-h: 221.2;
+    --primary-s: 83.2%;
+    --primary-l: 53.3%;
+    --primary: var(--primary-h) var(--primary-s) var(--primary-l);
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,30 +25,33 @@
     --success-foreground: 355.7 100% 97.3%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.375rem;
+    --ring: var(--primary-h) var(--primary-s) var(--primary-l);
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 0 0% 0%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 6%;
+    --card: 0 0% 8%;
     --card-foreground: 0 0% 98%;
-    --primary: 142 76% 36%;
+    --primary-h: 142;
+    --primary-s: 76%;
+    --primary-l: 36%;
+    --primary: var(--primary-h) var(--primary-s) var(--primary-l);
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 12%;
+    --secondary: 0 0% 14%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 12%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 55%;
+    --accent: 0 0% 14%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
     --success: 142 76% 36%;
     --success-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 142 76% 36%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: var(--primary-h) var(--primary-s) var(--primary-l);
   }
 }
 
@@ -66,8 +72,29 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-}
 
-.bg-card {
-  background-color: rgb(12, 12, 12) !important;
+  .glass {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .glow-primary {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.25);
+  }
+
+  .glow-destructive {
+    box-shadow: 0 0 20px -5px hsl(var(--destructive) / 0.25);
+  }
+
+  .gradient-text-primary {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary) / 0.6) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }

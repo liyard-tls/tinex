@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2 } from "lucide-react";
+import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -95,7 +95,6 @@ export default function DashboardPage() {
       const allTxns = await transactionRepository.getByUserId(userId);
       const userAccounts = await accountRepository.getByUserId(userId);
 
-      // Convert all account balances to base currency for sorting
       const accountsWithConvertedBalance = await Promise.all(
         userAccounts.map(async (account) => {
           const convertedBalance = await convertCurrency(
@@ -103,27 +102,19 @@ export default function DashboardPage() {
             account.currency,
             settings.baseCurrency
           );
-          return {
-            ...account,
-            convertedBalance,
-          };
+          return { ...account, convertedBalance };
         })
       );
 
-      // Sort by absolute balance value (descending)
       const sortedAccounts = accountsWithConvertedBalance.sort(
         (a, b) => Math.abs(b.convertedBalance) - Math.abs(a.convertedBalance)
       );
-
       setAllAccounts(sortedAccounts);
 
       let accountsBalance = 0;
       if (userAccounts.length > 0) {
         accountsBalance = await convertMultipleCurrencies(
-          userAccounts.map((acc) => ({
-            amount: acc.balance,
-            currency: acc.currency,
-          })),
+          userAccounts.map((acc) => ({ amount: acc.balance, currency: acc.currency })),
           settings.baseCurrency
         );
       }
@@ -137,16 +128,9 @@ export default function DashboardPage() {
 
       let futureAmount = 0;
       for (const txn of futureTxns) {
-        const convertedAmount = await convertCurrency(
-          txn.amount,
-          txn.currency,
-          settings.baseCurrency
-        );
-        if (txn.type === "income") {
-          futureAmount += convertedAmount;
-        } else if (txn.type === "expense") {
-          futureAmount -= convertedAmount;
-        }
+        const convertedAmount = await convertCurrency(txn.amount, txn.currency, settings.baseCurrency);
+        if (txn.type === "income") futureAmount += convertedAmount;
+        else if (txn.type === "expense") futureAmount -= convertedAmount;
       }
 
       const allWishlistItems = await wishlistItemRepository.getByUserId(userId);
@@ -154,23 +138,15 @@ export default function DashboardPage() {
 
       let confirmedWishlistTotal = 0;
       for (const item of confirmedItems) {
-        const convertedAmount = await convertCurrency(
-          item.amount,
-          item.currency,
-          settings.baseCurrency
-        );
+        const convertedAmount = await convertCurrency(item.amount, item.currency, settings.baseCurrency);
         confirmedWishlistTotal += convertedAmount;
       }
 
-      // Calculate saving accounts total
       const savingAccounts = userAccounts.filter((acc) => acc.isSaving);
       let savingAccountsTotal = 0;
       if (savingAccounts.length > 0) {
         savingAccountsTotal = await convertMultipleCurrencies(
-          savingAccounts.map((acc) => ({
-            amount: acc.balance,
-            currency: acc.currency,
-          })),
+          savingAccounts.map((acc) => ({ amount: acc.balance, currency: acc.currency })),
           settings.baseCurrency
         );
       }
@@ -193,9 +169,7 @@ export default function DashboardPage() {
 
       setTags(userTags);
 
-      const txns = await transactionRepository.getByUserId(userId, {
-        limitCount: 10,
-      });
+      const txns = await transactionRepository.getByUserId(userId, { limitCount: 10 });
       setTransactions(txns);
 
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -209,39 +183,20 @@ export default function DashboardPage() {
       });
 
       const systemCategoryIds = userCategories
-        .filter(
-          (cat) =>
-            cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
-            cat.name === SYSTEM_CATEGORIES.TRANSFER_IN
-        )
+        .filter((cat) => cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT || cat.name === SYSTEM_CATEGORIES.TRANSFER_IN)
         .map((cat) => cat.id);
 
-      const nonTransferTxns = monthTxns.filter(
-        (txn) => !systemCategoryIds.includes(txn.categoryId)
-      );
+      const nonTransferTxns = monthTxns.filter((txn) => !systemCategoryIds.includes(txn.categoryId));
 
       let income = 0;
       let expenses = 0;
-
       for (const txn of nonTransferTxns) {
-        const convertedAmount = await convertCurrency(
-          txn.amount,
-          txn.currency,
-          settings.baseCurrency
-        );
-        if (txn.type === "income") {
-          income += convertedAmount;
-        } else if (txn.type === "expense") {
-          expenses += convertedAmount;
-        }
+        const convertedAmount = await convertCurrency(txn.amount, txn.currency, settings.baseCurrency);
+        if (txn.type === "income") income += convertedAmount;
+        else if (txn.type === "expense") expenses += convertedAmount;
       }
 
-      setStats({
-        income,
-        expenses,
-        balance: income - expenses,
-        transactionCount: nonTransferTxns.length,
-      });
+      setStats({ income, expenses, balance: income - expenses, transactionCount: nonTransferTxns.length });
     } catch (error) {
       console.error("Failed to load data:", error);
     }
@@ -253,11 +208,9 @@ export default function DashboardPage() {
 
   const handleAddTransaction = async (data: CreateTransactionInput, currency: string) => {
     if (!user) return;
-
     try {
       await transactionRepository.create(user.uid, data, currency);
       await loadData(user.uid);
-      // Don't close the form - user may want to add more transactions
       setShowQuickActions(false);
     } catch (error) {
       console.error("Failed to add transaction:", error);
@@ -276,7 +229,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-sm text-muted-foreground">Loading dashboard...</p>
@@ -287,73 +240,97 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
+  const isPositive = balanceWithFuture >= 0;
+  const baseCurrency = userSettings?.baseCurrency || "USD";
+
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <header className="sticky top-0 z-40 bg-background/70 backdrop-blur-md border-b border-white/[0.06]">
         <div className="container flex h-14 max-w-screen-2xl items-center px-4">
           <div className="flex-1">
-            <h1 className="text-lg font-semibold md:text-xl">TineX</h1>
-            <p className="text-xs text-muted-foreground truncate max-w-[200px]">{user.email}</p>
+            <h1 className="text-lg font-bold gradient-text-primary">TineX</h1>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleSignOut}>
+          <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground">
             <LogOut className="h-4 w-4" />
             <span className="sr-only">Sign out</span>
           </Button>
         </div>
       </header>
 
-      <main className="container max-w-screen-2xl px-4 py-6 space-y-6">
+      <main className="container max-w-screen-2xl px-4 py-5 space-y-5">
+
         {/* Balance Card */}
         <Card
           className={cn(
-            "bg-gradient-to-br border-2",
-            balanceWithFuture >= 0
-              ? "from-primary/20 to-primary/5 border-primary/20"
-              : "from-destructive/20 to-destructive/5 border-destructive/20"
+            "relative overflow-hidden",
+            isPositive
+              ? "border-primary/25 bg-primary/[0.07] shadow-primary/10"
+              : "border-destructive/25 bg-destructive/[0.07] shadow-destructive/10",
+            "shadow-xl"
           )}
         >
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center justify-between">
-              <span>Total Balance</span>
-              <Badge variant="secondary" className="text-xs">
-                {userSettings?.baseCurrency || "USD"}
+          {/* Subtle glow orb top-right */}
+          <div
+            className={cn(
+              "absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20",
+              isPositive ? "bg-primary" : "bg-destructive"
+            )}
+          />
+          <CardHeader className="pb-2 relative z-10">
+            <div className="flex items-center justify-between">
+              <CardDescription className="text-xs font-medium uppercase tracking-widest text-muted-foreground/70">
+                Total Balance
+              </CardDescription>
+              <Badge variant="secondary" className="text-xs bg-white/[0.06] border-white/[0.08] text-muted-foreground">
+                {baseCurrency}
               </Badge>
-            </CardDescription>
-            <CardTitle className={cn("text-3xl md:text-4xl", balanceWithFuture < 0 && "text-destructive")}>
-              {formatCurrency(balanceWithFuture, userSettings?.baseCurrency || "USD")}
+            </div>
+            <CardTitle
+              className={cn(
+                "text-4xl md:text-5xl font-bold tracking-tight mt-1",
+                !isPositive && "text-destructive"
+              )}
+            >
+              {formatCurrency(balanceWithFuture, baseCurrency)}
             </CardTitle>
             {balanceWithFuture !== totalBalance && (
-              <p className="text-sm text-muted-foreground">
-                Current: {formatCurrency(totalBalance, userSettings?.baseCurrency || "USD")}
+              <p className="text-xs text-muted-foreground mt-1">
+                Current: {formatCurrency(totalBalance, baseCurrency)}
               </p>
             )}
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Wallet className="h-3 w-3" />
+          <CardContent className="relative z-10">
+            <div className="grid grid-cols-3 gap-3 pt-1">
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <div className="w-6 h-6 rounded-md bg-white/[0.06] flex items-center justify-center">
+                    <Wallet className="h-3 w-3" />
+                  </div>
                   <span className="text-xs">Accounts</span>
                 </div>
-                <span className="font-semibold">{allAccounts.length}</span>
+                <span className="text-base font-semibold pl-0.5">{allAccounts.length}</span>
               </div>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1 text-green-500">
-                  <TrendingUp className="h-3 w-3" />
-                  <span className="text-xs">Income</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-success/10 flex items-center justify-center">
+                    <TrendingUp className="h-3 w-3 text-success" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">Income</span>
                 </div>
-                <span className="font-semibold">
-                  {formatCurrency(stats.income, userSettings?.baseCurrency || "USD")}
+                <span className="text-base font-semibold pl-0.5 text-success">
+                  {formatCurrency(stats.income, baseCurrency)}
                 </span>
               </div>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1 text-destructive">
-                  <TrendingDown className="h-3 w-3" />
-                  <span className="text-xs">Expenses</span>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-md bg-destructive/10 flex items-center justify-center">
+                    <TrendingDown className="h-3 w-3 text-destructive" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">Spent</span>
                 </div>
-                <span className="font-semibold">
-                  {formatCurrency(stats.expenses, userSettings?.baseCurrency || "USD")}
+                <span className="text-base font-semibold pl-0.5 text-destructive">
+                  {formatCurrency(stats.expenses, baseCurrency)}
                 </span>
               </div>
             </div>
@@ -363,13 +340,19 @@ export default function DashboardPage() {
         {/* Accounts Section */}
         {allAccounts.length > 0 ? (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Accounts</h2>
-              <Button variant="ghost" size="sm" onClick={() => router.push("/accounts")}>
+            <div className="flex items-center justify-between px-0.5">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Accounts</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/accounts")}
+                className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7 px-2"
+              >
                 View All
+                <ArrowUpRight className="h-3 w-3" />
               </Button>
             </div>
-            <div className="overflow-x-auto pb-2 -mx-4 px-4">
+            <div className="overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
               <div className="flex gap-3 min-w-max">
                 {allAccounts.map((account) => {
                   const AccountIcon = account.icon
@@ -380,29 +363,33 @@ export default function DashboardPage() {
 
                   return (
                     <Link key={account.id} href={`/accounts/${account.id}`} className="flex-shrink-0">
-                      <Card className={cn(
-                        "w-[160px] hover:bg-accent/50 transition-colors",
-                        account.isSaving && "border-amber-500/50 bg-amber-500/5"
-                      )}>
-                        <CardContent className="p-4 space-y-3">
-                          <div
-                            className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto"
-                            style={{ backgroundColor: `${accountColor}20` }}
-                          >
-                            <AccountIcon className="h-6 w-6" style={{ color: accountColor }} />
-                          </div>
-                          <div className="text-center space-y-1">
-                            <p className="text-sm font-medium truncate">{account.name}</p>
-                            <p className={cn(
-                              "text-lg font-bold",
-                              isNegativeBalance && "text-destructive"
-                            )}>
-                              {getCurrencySymbol(account.currency)}
-                              {account.balance.toFixed(2)}
-                            </p>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <div
+                        className={cn(
+                          "w-[140px] rounded-2xl p-4 border backdrop-blur-sm transition-all duration-200",
+                          "hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
+                          account.isSaving
+                            ? "border-amber-500/25 bg-amber-500/[0.05] hover:bg-amber-500/[0.08] shadow-amber-500/10"
+                            : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] hover:border-primary/20",
+                          "shadow-lg shadow-black/20"
+                        )}
+                      >
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+                          style={{
+                            backgroundColor: `${accountColor}18`,
+                            boxShadow: `0 0 12px -2px ${accountColor}40`,
+                          }}
+                        >
+                          <AccountIcon className="h-4.5 w-4.5" style={{ color: accountColor }} />
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mb-0.5">{account.name}</p>
+                        <p className={cn(
+                          "text-sm font-bold tracking-tight",
+                          isNegativeBalance ? "text-destructive" : "text-foreground"
+                        )}>
+                          {getCurrencySymbol(account.currency)}{account.balance.toFixed(2)}
+                        </p>
+                      </div>
                     </Link>
                   );
                 })}
@@ -410,7 +397,7 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <Card className="border-destructive/50 bg-destructive/5">
+          <Card className="border-destructive/25 bg-destructive/[0.05]">
             <CardHeader>
               <CardTitle className="text-base">No Accounts</CardTitle>
               <CardDescription>Create an account to start tracking transactions</CardDescription>
@@ -425,23 +412,23 @@ export default function DashboardPage() {
         )}
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>This Month</CardDescription>
-              <CardTitle className="text-2xl text-destructive">
-                {formatCurrency(stats.expenses, userSettings?.baseCurrency || "USD")}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="border-destructive/20 bg-destructive/[0.04]">
+            <CardHeader className="pb-1">
+              <CardDescription className="text-xs">Spent this month</CardDescription>
+              <CardTitle className="text-2xl font-bold text-destructive tracking-tight">
+                {formatCurrency(stats.expenses, baseCurrency)}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">Total spent</p>
+              <p className="text-xs text-muted-foreground">of your expenses</p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Transactions</CardDescription>
-              <CardTitle className="text-2xl">{stats.transactionCount}</CardTitle>
+            <CardHeader className="pb-1">
+              <CardDescription className="text-xs">Transactions</CardDescription>
+              <CardTitle className="text-2xl font-bold tracking-tight">{stats.transactionCount}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">This month</p>
@@ -452,18 +439,23 @@ export default function DashboardPage() {
         {/* Recent Transactions */}
         {transactions.length > 0 ? (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold">Recent Transactions</h2>
-              <Button variant="ghost" size="sm" onClick={() => router.push("/transactions")}>
+            <div className="flex items-center justify-between px-0.5">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/transactions")}
+                className="text-xs text-muted-foreground hover:text-foreground gap-1 h-7 px-2"
+              >
                 View All
+                <ArrowUpRight className="h-3 w-3" />
               </Button>
             </div>
             <Card>
-              <CardContent className="p-0 divide-y">
+              <CardContent className="p-0 divide-y divide-white/[0.05]">
                 {transactions.slice(0, 5).map((txn) => {
                   const category = categories.find((c) => c.id === txn.categoryId);
                   const transactionTags = tags.filter((t) => txn.tags?.includes(t.id));
-
                   return (
                     <TransactionListItem
                       key={txn.id}
@@ -481,15 +473,11 @@ export default function DashboardPage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Get Started</CardTitle>
+              <CardTitle className="text-base">Get Started</CardTitle>
               <CardDescription>Add your first transaction to start tracking</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                variant="default"
-                className="w-full"
-                onClick={() => setShowAddTransaction(true)}
-              >
+              <Button variant="default" className="w-full" onClick={() => setShowAddTransaction(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Your First Transaction
               </Button>
@@ -507,7 +495,7 @@ export default function DashboardPage() {
       {showQuickActions && (
         <>
           <div
-            className="fixed inset-0 bg-black/20 z-40"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             onClick={() => setShowQuickActions(false)}
           />
           <div className="fixed bottom-40 right-4 z-50 flex flex-col gap-2">
@@ -517,7 +505,7 @@ export default function DashboardPage() {
                 setShowAddTransaction(true);
                 setShowQuickActions(false);
               }}
-              className="gap-2 shadow-lg"
+              className="gap-2 shadow-xl shadow-primary/20"
             >
               <Plus className="h-5 w-5" />
               Add Transaction
@@ -526,7 +514,7 @@ export default function DashboardPage() {
               size="lg"
               variant="secondary"
               onClick={() => router.push("/import")}
-              className="gap-2 shadow-lg"
+              className="gap-2 shadow-xl shadow-black/30"
             >
               <Upload className="h-5 w-5" />
               Import Statement
@@ -551,7 +539,6 @@ export default function DashboardPage() {
 
       <BottomNav />
 
-      {/* What's New Popup */}
       {user && <WhatsNewPopup userId={user.uid} />}
     </div>
   );

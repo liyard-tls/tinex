@@ -20,7 +20,7 @@ export default function BottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-bottom">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/75 backdrop-blur-md border-t border-white/[0.07] safe-area-bottom">
         <div className="flex items-center justify-around h-16 max-w-lg mx-auto px-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -31,15 +31,20 @@ export default function BottomNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors',
+                  'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-200',
                   'active:scale-95',
                   isActive
                     ? 'text-primary'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
-                <span className="text-xs font-medium">{item.label}</span>
+                <div className={cn(
+                  'flex items-center justify-center w-8 h-6 rounded-full transition-all duration-200',
+                  isActive && 'bg-primary/15'
+                )}>
+                  <Icon className={cn('h-5 w-5', isActive && 'stroke-[2.5]')} />
+                </div>
+                <span className={cn('text-xs transition-all duration-200', isActive ? 'font-semibold' : 'font-medium')}>{item.label}</span>
               </Link>
             );
           })}
@@ -48,12 +53,14 @@ export default function BottomNav() {
           <button
             onClick={() => setShowMenu(true)}
             className={cn(
-              'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors',
+              'flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all duration-200',
               'active:scale-95',
               'text-muted-foreground hover:text-foreground'
             )}
           >
-            <Menu className="h-5 w-5" />
+            <div className="flex items-center justify-center w-8 h-6">
+              <Menu className="h-5 w-5" />
+            </div>
             <span className="text-xs font-medium">Menu</span>
           </button>
         </div>
