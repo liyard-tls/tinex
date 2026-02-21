@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import {
@@ -243,12 +244,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3">
-          <h1 className="text-xl font-bold">Profile</h1>
-          <p className="text-xs text-muted-foreground">Account settings and preferences</p>
-        </div>
-      </header>
+      <PageHeader title="Profile" description="Account settings and preferences" />
 
       <main className="px-4 py-4 space-y-4">
         {/* User Info */}

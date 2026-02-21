@@ -10,6 +10,7 @@ import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import AddWishlistForm from '@/modules/wishlists/AddWishlistForm';
 import { Plus, ChevronDown } from 'lucide-react';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { wishlistRepository } from '@/core/repositories/WishlistRepository';
 import { wishlistItemRepository } from '@/core/repositories/WishlistItemRepository';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
@@ -119,19 +120,21 @@ export default function WishlistsPage() {
   const currencySymbol = getCurrencySymbol(userCurrency);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto p-4 pb-20">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold mb-1">Wishlists</h1>
-            <p className="text-sm text-muted-foreground">Track items you want to buy</p>
-          </div>
-          <Button onClick={() => setShowAddModal(true)} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
+    <div className="min-h-screen bg-background pb-20">
+      <PageHeader
+        title="Wishlists"
+        description="Track items you want to buy"
+        rightElement={
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
             New
-          </Button>
-        </div>
+          </button>
+        }
+      />
+      <div className="container max-w-2xl mx-auto p-4">
 
         {/* Wishlists */}
         {wishlists.length === 0 ? (

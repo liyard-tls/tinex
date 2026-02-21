@@ -5,9 +5,10 @@ import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
-import { Filter, X, MoreHorizontal, ArrowLeft, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Filter, X, MoreHorizontal, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import Input from '@/shared/components/ui/Input';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
@@ -317,34 +318,19 @@ function CategoryTransactionsContent() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => router.push(returnTo || '/analytics')}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-2 flex-1">
-              <div
-                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${category.color}20` }}
-              >
-                <IconComponent className="h-4 w-4" style={{ color: category.color }} />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-xl font-bold">{category.name}</h1>
-                <p className="text-xs text-muted-foreground">
-                  {filteredTransactions.length} transaction{filteredTransactions.length !== 1 ? 's' : ''}
-                </p>
-              </div>
-            </div>
+      <PageHeader
+        title={category.name}
+        description={`${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''}`}
+        onBack={() => router.push(returnTo || '/analytics')}
+        rightElement={
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: `${category.color}20` }}
+          >
+            <IconComponent className="h-4 w-4" style={{ color: category.color }} />
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="px-4 py-4 space-y-4">
         {/* Chart */}

@@ -1,11 +1,12 @@
 'use client';
-import { MoreHorizontal, ArrowLeft, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
+import { MoreHorizontal, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
+
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
@@ -175,22 +176,11 @@ export default function AccountDetailPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3 flex items-center gap-3">
-          <Link href="/accounts">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold">{account.name}</h1>
-            <p className="text-xs text-muted-foreground capitalize">
-              {account.type.replace('_', ' ')}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title={account.name}
+        description={account.type.replace('_', ' ')}
+        backHref="/accounts"
+      />
 
       <main className="px-4 py-4 space-y-4">
         {/* Account Balance Card */}

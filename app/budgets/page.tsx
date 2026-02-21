@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import Modal from '@/shared/components/ui/Modal';
 import { Plus, Clock, FolderOpen } from 'lucide-react';
 import { Budget, BudgetProgress, Category, Currency } from '@/core/models';
@@ -131,39 +132,37 @@ export default function BudgetsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold">Budgets</h1>
-
-          {/* Group Mode Toggle */}
-          <div className="flex items-center gap-2">
+      <PageHeader
+        title="Budgets"
+        rightElement={
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setGroupMode('period')}
-              className={`p-2 rounded-md transition-colors ${
+              className={`p-2 rounded-xl transition-colors ${
                 groupMode === 'period'
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:bg-white/[0.06]'
               }`}
               aria-label="Group by period"
               title="Group by time period"
             >
-              <Clock className="h-5 w-5" />
+              <Clock className="h-4 w-4" />
             </button>
             <button
               onClick={() => setGroupMode('category')}
-              className={`p-2 rounded-md transition-colors ${
+              className={`p-2 rounded-xl transition-colors ${
                 groupMode === 'category'
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:bg-white/[0.06]'
               }`}
               aria-label="Group by category"
               title="Group by category"
             >
-              <FolderOpen className="h-5 w-5" />
+              <FolderOpen className="h-4 w-4" />
             </button>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="px-4 py-4">
         {loading ? (

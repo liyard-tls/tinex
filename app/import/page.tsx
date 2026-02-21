@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import PageHeader from "@/shared/components/layout/PageHeader";
 import {
   Card,
   CardContent,
@@ -370,14 +371,12 @@ function ImportPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto p-4 pb-20">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Import Transactions</h1>
-          <p className="text-sm text-muted-foreground">
-            Import transactions from bank statements
-          </p>
-        </div>
+    <div className="min-h-screen bg-background pb-20">
+      <PageHeader
+        title="Import Transactions"
+        description="Import transactions from bank statements"
+      />
+      <div className="container max-w-2xl mx-auto p-4">
 
         {/* HomeBank QIF Import */}
         {/* <Card className="mb-4">

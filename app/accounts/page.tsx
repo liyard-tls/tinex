@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
@@ -103,12 +104,7 @@ export default function AccountsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3">
-          <h1 className="text-xl font-bold">Accounts</h1>
-          <p className="text-xs text-muted-foreground">Manage your accounts</p>
-        </div>
-      </header>
+      <PageHeader title="Accounts" description="Manage your accounts" />
 
       <main className="px-4 py-4 space-y-4">
         {/* Accounts List - Compact */}

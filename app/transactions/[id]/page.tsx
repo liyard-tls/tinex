@@ -1,10 +1,11 @@
 "use client";
-import { MoreHorizontal, ArrowLeft, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import PageHeader from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui";
 import { Input } from "@/shared/components/ui";
 import AccountSelect from "@/shared/components/ui/AccountSelect";
@@ -201,22 +202,17 @@ export default function TransactionDetailPage() {
     : MoreHorizontal;
 
   return (
-    <div className="min-h-screen bg-background relative">
-      <div className="container max-w-2xl mx-auto p-4 pb-20 relative">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => router.push(returnTo || "/transactions")}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          {saving && (
+    <div className="min-h-screen bg-background relative pb-20">
+      <PageHeader
+        title="Transaction"
+        onBack={() => router.push(returnTo || "/transactions")}
+        rightElement={
+          saving ? (
             <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          )}
-        </div>
+          ) : undefined
+        }
+      />
+      <div className="container max-w-2xl mx-auto p-4 relative">
 
         {/* Hero Section with Icon and Amount */}
         <div className="bg-card rounded-2xl overflow-hidden mb-4 relative">

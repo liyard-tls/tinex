@@ -1,9 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Sparkles, Wrench, Bug, AlertTriangle } from 'lucide-react';
-import { Button } from '@/shared/components/ui';
+import { Sparkles, Wrench, Bug, AlertTriangle } from 'lucide-react';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { CHANGELOG, APP_VERSION, getChangeTypeConfig } from '@/shared/config/version';
 import { cn } from '@/shared/utils/cn';
 import { format, parseISO } from 'date-fns';
@@ -19,28 +19,13 @@ export default function ChangelogPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto p-4 pb-20">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.back()}
-            className="gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </div>
-
-        {/* Title */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Changelog</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Current version: {APP_VERSION}
-          </p>
-        </div>
+    <div className="min-h-screen bg-background pb-20">
+      <PageHeader
+        title="Changelog"
+        description={`Current version: ${APP_VERSION}`}
+        onBack={() => router.back()}
+      />
+      <div className="container max-w-2xl mx-auto p-4">
 
         {/* Changelog Entries */}
         <div className="space-y-6">

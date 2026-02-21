@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import TransactionListItem from '@/shared/components/ui/TransactionListItem';
-import { Filter, X, MoreHorizontal, ArrowLeft, Loader2 } from 'lucide-react';
+import { Filter, X, MoreHorizontal, Loader2 } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
@@ -183,26 +184,11 @@ function TransactionsContent() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-        <div className="container flex h-14 max-w-screen-2xl items-center px-4">
-          <div className="flex items-center gap-3 flex-1">
-            {hasActiveFilters && (
-              <Button variant="ghost" size="icon" onClick={clearFilters}>
-                <ArrowLeft className="h-4 w-4" />
-                <span className="sr-only">Go back</span>
-              </Button>
-            )}
-            <div className="flex-1">
-              <h1 className="text-lg font-semibold md:text-xl">All Transactions</h1>
-              <p className="text-xs text-muted-foreground">
-                {filteredTransactions.length} transaction
-                {filteredTransactions.length !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        title="All Transactions"
+        description={`${filteredTransactions.length} transaction${filteredTransactions.length !== 1 ? 's' : ''}`}
+        onBack={hasActiveFilters ? clearFilters : undefined}
+      />
 
       <main className="container max-w-screen-2xl px-4 py-6 space-y-6">
         {/* Active Filter Banner */}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
@@ -97,12 +98,7 @@ export default function TagsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border">
-        <div className="px-4 py-3">
-          <h1 className="text-xl font-bold">Tags</h1>
-          <p className="text-xs text-muted-foreground">Label and organize your transactions</p>
-        </div>
-      </header>
+      <PageHeader title="Tags" description="Label and organize your transactions" />
 
       <main className="px-4 py-4 space-y-4">
         {tags.length === 0 && (

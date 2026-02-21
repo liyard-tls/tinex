@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
@@ -17,7 +18,6 @@ import {
   Trash2,
   Check,
   X,
-  ArrowLeft,
 } from 'lucide-react';
 import { wishlistRepository } from '@/core/repositories/WishlistRepository';
 import { wishlistItemRepository } from '@/core/repositories/WishlistItemRepository';
@@ -203,70 +203,53 @@ export default function WishlistDetailPage() {
   const currencySymbol = getCurrencySymbol(userCurrency);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto p-4 pb-20">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => router.push('/wishlists')}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Wishlists
-          </button>
-
-          <div className="flex items-start justify-between gap-3">
-            {editingName ? (
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="text"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  className="flex-1 text-2xl font-bold bg-transparent border-b-2 border-primary focus:outline-none"
-                  autoFocus
-                />
-                <button
-                  onClick={handleSaveName}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                >
-                  <Check className="h-5 w-5 text-success" />
-                </button>
-                <button
-                  onClick={() => {
-                    setNewName(wishlist.name);
-                    setEditingName(false);
-                  }}
-                  className="p-2 hover:bg-muted rounded-lg transition-colors"
-                >
-                  <X className="h-5 w-5 text-destructive" />
-                </button>
-              </div>
-            ) : (
-              <>
-                <div className="flex-1">
-                  <h1 className="text-2xl font-bold mb-1">{wishlist.name}</h1>
-                  {wishlist.description && (
-                    <p className="text-sm text-muted-foreground">{wishlist.description}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setEditingName(true)}
-                    className="p-2 hover:bg-muted rounded-lg transition-colors"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={handleDeleteWishlist}
-                    className="p-2 hover:bg-destructive/10 text-destructive rounded-lg transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+    <div className="min-h-screen bg-background pb-20">
+      <PageHeader
+        title={editingName ? '' : wishlist.name}
+        description={wishlist.description || undefined}
+        onBack={() => router.push('/wishlists')}
+        rightElement={
+          editingName ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                className="text-sm font-medium bg-transparent border-b border-primary focus:outline-none px-1"
+                autoFocus
+              />
+              <button
+                onClick={handleSaveName}
+                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+              >
+                <Check className="h-4 w-4 text-success" />
+              </button>
+              <button
+                onClick={() => { setNewName(wishlist.name); setEditingName(false); }}
+                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors"
+              >
+                <X className="h-4 w-4 text-destructive" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setEditingName(true)}
+                className="p-1.5 hover:bg-white/[0.06] rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleDeleteWishlist}
+                className="p-1.5 hover:bg-destructive/10 rounded-lg transition-colors text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          )
+        }
+      />
+      <div className="container max-w-2xl mx-auto p-4">
 
         {/* Statistics */}
         <div className="grid grid-cols-2 gap-4 mb-6">
