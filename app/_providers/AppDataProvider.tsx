@@ -1,7 +1,9 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthProvider';
+import { QUERY_KEYS } from './queryKeys';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
@@ -28,82 +30,83 @@ const AppDataContext = createContext<AppDataContextValue>(null!);
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
-  const [dataLoading, setDataLoading] = useState(false);
+  const queryClient = useQueryClient();
+  const uid = user?.uid ?? null;
 
-  const loadAll = useCallback(async (uid: string) => {
-    setDataLoading(true);
-    try {
-      const [txns, accs, cats, tgs, settings] = await Promise.all([
-        transactionRepository.getByUserId(uid, { limitCount: 100 }),
-        accountRepository.getByUserId(uid),
-        categoryRepository.getByUserId(uid),
-        tagRepository.getByUserId(uid),
-        userSettingsRepository.getOrCreate(uid),
-      ]);
+  const { data: transactions = [], isLoading: txLoading } = useQuery({
+    queryKey: QUERY_KEYS.transactions(uid ?? ''),
+    queryFn: () => transactionRepository.getByUserId(uid!, { limitCount: 100 }),
+    enabled: !!uid,
+    staleTime: 5 * 60 * 1000,
+  });
 
-      setTransactions(txns);
-      setAccounts(accs);
-      setTags(tgs);
-      setUserSettings(settings);
+  const { data: accounts = [], isLoading: accLoading } = useQuery({
+    queryKey: QUERY_KEYS.accounts(uid ?? ''),
+    queryFn: () => accountRepository.getByUserId(uid!),
+    enabled: !!uid,
+    staleTime: 5 * 60 * 1000,
+  });
 
+  const { data: categories = [], isLoading: catLoading } = useQuery({
+    queryKey: QUERY_KEYS.categories(uid ?? ''),
+    queryFn: async () => {
+      const cats = await categoryRepository.getByUserId(uid!);
       if (cats.length === 0) {
-        await categoryRepository.createDefaultCategories(uid);
-        const updatedCats = await categoryRepository.getByUserId(uid);
-        setCategories(updatedCats);
-      } else {
-        setCategories(cats);
+        await categoryRepository.createDefaultCategories(uid!);
+        return categoryRepository.getByUserId(uid!);
       }
-    } catch (error) {
-      console.error('Failed to load app data:', error);
-    } finally {
-      setDataLoading(false);
-    }
-  }, []);
+      return cats;
+    },
+    enabled: !!uid,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    if (user?.uid) {
-      loadAll(user.uid);
-    }
-  }, [user?.uid, loadAll]);
+  const { data: tags = [], isLoading: tagLoading } = useQuery({
+    queryKey: QUERY_KEYS.tags(uid ?? ''),
+    queryFn: () => tagRepository.getByUserId(uid!),
+    enabled: !!uid,
+    staleTime: 10 * 60 * 1000,
+  });
 
-  const refresh = useCallback(async () => {
-    if (user?.uid) await loadAll(user.uid);
-  }, [user?.uid, loadAll]);
+  const { data: userSettings = null, isLoading: settingsLoading } = useQuery({
+    queryKey: QUERY_KEYS.userSettings(uid ?? ''),
+    queryFn: () => userSettingsRepository.getOrCreate(uid!),
+    enabled: !!uid,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // True only on first load (no cached data yet); false instantly when cache is warm
+  const dataLoading = !!uid && (txLoading || accLoading || catLoading || tagLoading || settingsLoading);
 
   const refreshTransactions = useCallback(async () => {
-    if (!user?.uid) return;
-    const txns = await transactionRepository.getByUserId(user.uid, { limitCount: 100 });
-    setTransactions(txns);
-  }, [user?.uid]);
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions(uid) });
+  }, [queryClient, uid]);
 
   const refreshAccounts = useCallback(async () => {
-    if (!user?.uid) return;
-    const accs = await accountRepository.getByUserId(user.uid);
-    setAccounts(accs);
-  }, [user?.uid]);
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts(uid) });
+  }, [queryClient, uid]);
 
   const refreshCategories = useCallback(async () => {
-    if (!user?.uid) return;
-    const cats = await categoryRepository.getByUserId(user.uid);
-    setCategories(cats);
-  }, [user?.uid]);
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.categories(uid) });
+  }, [queryClient, uid]);
 
   const refreshTags = useCallback(async () => {
-    if (!user?.uid) return;
-    const tgs = await tagRepository.getByUserId(user.uid);
-    setTags(tgs);
-  }, [user?.uid]);
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.tags(uid) });
+  }, [queryClient, uid]);
 
   const refreshUserSettings = useCallback(async () => {
-    if (!user?.uid) return;
-    const settings = await userSettingsRepository.getOrCreate(user.uid);
-    setUserSettings(settings);
-  }, [user?.uid]);
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userSettings(uid) });
+  }, [queryClient, uid]);
+
+  const refresh = useCallback(async () => {
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all(uid) });
+  }, [queryClient, uid]);
 
   return (
     <AppDataContext.Provider

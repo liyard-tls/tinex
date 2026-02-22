@@ -1,5 +1,4 @@
 import {
-  collection,
   doc,
   getDoc,
   setDoc,
@@ -33,14 +32,16 @@ class UserSettingsRepository {
       }
 
       const data = docSnap.data();
+      const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date();
+      const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date();
       return {
         id: docSnap.id,
         userId: data.userId,
         baseCurrency: data.baseCurrency,
         activeAnalyticsPresetId: data.activeAnalyticsPresetId,
         seenVersion: data.seenVersion,
-        createdAt: data.createdAt as Timestamp,
-        updatedAt: data.updatedAt as Timestamp,
+        createdAt,
+        updatedAt,
       };
     } catch (error) {
       console.error('Error getting user settings:', error);
@@ -72,23 +73,24 @@ class UserSettingsRepository {
     try {
       const docRef = doc(db, this.collectionName, userId);
 
-      const now = serverTimestamp();
+      const serverNow = serverTimestamp();
       const data = {
         userId,
         baseCurrency: input.baseCurrency,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: serverNow,
+        updatedAt: serverNow,
       };
 
       await setDoc(docRef, data);
 
       // Return created settings with current timestamp
+      const now = new Date();
       return {
         id: userId,
         userId,
         baseCurrency: input.baseCurrency,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        createdAt: now,
+        updatedAt: now,
       };
     } catch (error) {
       console.error('Error creating user settings:', error);

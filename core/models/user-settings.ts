@@ -1,4 +1,3 @@
-import { Timestamp } from 'firebase/firestore';
 import { Currency } from './account';
 
 /**
@@ -11,8 +10,8 @@ export interface UserSettings {
   baseCurrency: Currency; // Main currency for displaying totals and analytics
   activeAnalyticsPresetId?: string; // Currently selected analytics preset (null = All Categories)
   seenVersion?: string; // Last app version user has seen (for What's New popup)
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 /**
