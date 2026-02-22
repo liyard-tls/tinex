@@ -1,11 +1,9 @@
 "use client";
 
 import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,20 +13,13 @@ import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
 import TransactionListItem from "@/shared/components/ui/TransactionListItem";
 import WhatsNewPopup from "@/shared/components/ui/WhatsNewPopup";
+import { useAuth } from "@/app/_providers/AuthProvider";
+import { useAppData } from "@/app/_providers/AppDataProvider";
 
 import { transactionRepository } from "@/core/repositories/TransactionRepository";
-import { accountRepository } from "@/core/repositories/AccountRepository";
-import { categoryRepository } from "@/core/repositories/CategoryRepository";
-import { tagRepository } from "@/core/repositories/TagRepository";
-import { userSettingsRepository } from "@/core/repositories/UserSettingsRepository";
 import { wishlistItemRepository } from "@/core/repositories/WishlistItemRepository";
 import {
   CreateTransactionInput,
-  Transaction,
-  Account,
-  Category,
-  Tag,
-  UserSettings,
   WishlistItem,
   SYSTEM_CATEGORIES,
   CURRENCIES,
@@ -46,81 +37,55 @@ const getCurrencySymbol = (currency: string) => {
 };
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<{
-    uid: string;
-    email: string;
-    displayName?: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, authLoading, signOut } = useAuth();
+  const { transactions, accounts, categories, tags, userSettings, dataLoading, refreshTransactions } = useAppData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [stats, setStats] = useState({
     income: 0,
     expenses: 0,
     balance: 0,
     transactionCount: 0,
   });
+  const [allAccounts, setAllAccounts] = useState(accounts);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [balanceWithFuture, setBalanceWithFuture] = useState<number>(0);
   const router = useRouter();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({
-          uid: currentUser.uid,
-          email: currentUser.email || "",
-          displayName: currentUser.displayName || undefined,
-        });
-        await loadData(currentUser.uid);
-      } else {
-        router.push("/auth");
-      }
-      setLoading(false);
-    });
+  const calculateDashboardData = useCallback(async () => {
+    if (!userSettings || accounts.length === 0 && transactions.length === 0) return;
 
-    return () => unsubscribe();
-  }, [router]);
-
-  const loadData = async (userId: string) => {
     try {
-      const settings = await userSettingsRepository.getOrCreate(userId);
-      setUserSettings(settings);
+      const baseCurrency = userSettings.baseCurrency;
 
-      const allTxns = await transactionRepository.getByUserId(userId);
-      const userAccounts = await accountRepository.getByUserId(userId);
-
+      // Sort accounts by converted balance
       const accountsWithConvertedBalance = await Promise.all(
-        userAccounts.map(async (account) => {
+        accounts.map(async (account) => {
           const convertedBalance = await convertCurrency(
             account.balance,
             account.currency,
-            settings.baseCurrency
+            baseCurrency
           );
           return { ...account, convertedBalance };
         })
       );
-
       const sortedAccounts = accountsWithConvertedBalance.sort(
         (a, b) => Math.abs(b.convertedBalance) - Math.abs(a.convertedBalance)
       );
       setAllAccounts(sortedAccounts);
 
+      // Total balance
       let accountsBalance = 0;
-      if (userAccounts.length > 0) {
+      if (accounts.length > 0) {
         accountsBalance = await convertMultipleCurrencies(
-          userAccounts.map((acc) => ({ amount: acc.balance, currency: acc.currency })),
-          settings.baseCurrency
+          accounts.map((acc) => ({ amount: acc.balance, currency: acc.currency })),
+          baseCurrency
         );
       }
 
+      // Future transactions
       const now = new Date();
-      const futureTxns = allTxns.filter((txn) => {
+      const futureTxns = transactions.filter((txn) => {
         const txnDate =
           txn.date instanceof Date ? txn.date : (txn.date as { toDate: () => Date }).toDate();
         return txnDate > now;
@@ -128,61 +93,46 @@ export default function DashboardPage() {
 
       let futureAmount = 0;
       for (const txn of futureTxns) {
-        const convertedAmount = await convertCurrency(txn.amount, txn.currency, settings.baseCurrency);
+        const convertedAmount = await convertCurrency(txn.amount, txn.currency, baseCurrency);
         if (txn.type === "income") futureAmount += convertedAmount;
         else if (txn.type === "expense") futureAmount -= convertedAmount;
       }
 
-      const allWishlistItems = await wishlistItemRepository.getByUserId(userId);
+      // Wishlist confirmed items (still fetched locally — not in context)
+      const allWishlistItems = await wishlistItemRepository.getByUserId(user!.uid);
       const confirmedItems = allWishlistItems.filter((item: WishlistItem) => item.isConfirmed);
 
       let confirmedWishlistTotal = 0;
       for (const item of confirmedItems) {
-        const convertedAmount = await convertCurrency(item.amount, item.currency, settings.baseCurrency);
+        const convertedAmount = await convertCurrency(item.amount, item.currency, baseCurrency);
         confirmedWishlistTotal += convertedAmount;
       }
 
-      const savingAccounts = userAccounts.filter((acc) => acc.isSaving);
+      // Saving accounts
+      const savingAccounts = accounts.filter((acc) => acc.isSaving);
       let savingAccountsTotal = 0;
       if (savingAccounts.length > 0) {
         savingAccountsTotal = await convertMultipleCurrencies(
           savingAccounts.map((acc) => ({ amount: acc.balance, currency: acc.currency })),
-          settings.baseCurrency
+          baseCurrency
         );
       }
 
       setTotalBalance(accountsBalance);
       setBalanceWithFuture(accountsBalance - futureAmount - confirmedWishlistTotal - savingAccountsTotal);
 
-      const [userCategories, userTags] = await Promise.all([
-        categoryRepository.getByUserId(userId),
-        tagRepository.getByUserId(userId),
-      ]);
-
-      if (userCategories.length === 0) {
-        await categoryRepository.createDefaultCategories(userId);
-        const updatedCategories = await categoryRepository.getByUserId(userId);
-        setCategories(updatedCategories);
-      } else {
-        setCategories(userCategories);
-      }
-
-      setTags(userTags);
-
-      const txns = await transactionRepository.getByUserId(userId, { limitCount: 10 });
-      setTransactions(txns);
-
+      // Month stats
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
       const endOfMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0);
       endOfMonth.setHours(23, 59, 59, 999);
 
-      const monthTxns = allTxns.filter((txn) => {
+      const monthTxns = transactions.filter((txn) => {
         const txnDate =
           txn.date instanceof Date ? txn.date : (txn.date as { toDate: () => Date }).toDate();
         return txnDate >= startOfMonth && txnDate <= endOfMonth;
       });
 
-      const systemCategoryIds = userCategories
+      const systemCategoryIds = categories
         .filter((cat) => cat.name === SYSTEM_CATEGORIES.TRANSFER_OUT || cat.name === SYSTEM_CATEGORIES.TRANSFER_IN)
         .map((cat) => cat.id);
 
@@ -191,16 +141,20 @@ export default function DashboardPage() {
       let income = 0;
       let expenses = 0;
       for (const txn of nonTransferTxns) {
-        const convertedAmount = await convertCurrency(txn.amount, txn.currency, settings.baseCurrency);
+        const convertedAmount = await convertCurrency(txn.amount, txn.currency, baseCurrency);
         if (txn.type === "income") income += convertedAmount;
         else if (txn.type === "expense") expenses += convertedAmount;
       }
 
       setStats({ income, expenses, balance: income - expenses, transactionCount: nonTransferTxns.length });
     } catch (error) {
-      console.error("Failed to load data:", error);
+      console.error("Failed to calculate dashboard data:", error);
     }
-  };
+  }, [user, accounts, transactions, categories, userSettings]);
+
+  useEffect(() => {
+    calculateDashboardData();
+  }, [calculateDashboardData]);
 
   const getAccountName = (accountId: string) => {
     return allAccounts.find((acc) => acc.id === accountId)?.name || "Unknown";
@@ -210,7 +164,7 @@ export default function DashboardPage() {
     if (!user) return;
     try {
       await transactionRepository.create(user.uid, data, currency);
-      await loadData(user.uid);
+      await refreshTransactions();
       setShowQuickActions(false);
     } catch (error) {
       console.error("Failed to add transaction:", error);
@@ -219,15 +173,10 @@ export default function DashboardPage() {
   };
 
   const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      router.push("/");
-    } catch (error) {
-      console.error("Sign out error:", error);
-    }
+    await signOut();
   };
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">

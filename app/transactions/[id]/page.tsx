@@ -2,9 +2,8 @@
 import { MoreHorizontal, Trash2 } from 'lucide-react';
 import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import { useAuth } from "@/app/_providers/AuthProvider";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui";
 import { Input } from "@/shared/components/ui";
@@ -26,7 +25,7 @@ export default function TransactionDetailPage() {
   const transactionId = params.id as string;
   const returnTo = searchParams.get('returnTo');
 
-  const [user, setUser] = useState<{ uid: string } | null>(null);
+  const { user, authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -56,21 +55,13 @@ export default function TransactionDetailPage() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push("/auth");
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    if (!user?.uid) return;
+    loadData(user.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, transactionId]);
+  }, [user?.uid, transactionId]);
 
   const loadData = async (userId: string) => {
+    setLoading(true);
     try {
       // Load transaction
       const txn = await transactionRepository.getById(transactionId);
@@ -108,6 +99,8 @@ export default function TransactionDetailPage() {
     } catch (error) {
       console.error("Failed to load transaction:", error);
       router.push("/transactions");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -181,7 +174,7 @@ export default function TransactionDetailPage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-2xl mx-auto p-4 pb-20">

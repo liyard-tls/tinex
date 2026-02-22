@@ -2,61 +2,48 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import AddWishlistForm from '@/modules/wishlists/AddWishlistForm';
-import { Plus, ChevronDown } from 'lucide-react';
+import { Plus, ChevronDown, Loader2 } from 'lucide-react';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { wishlistRepository } from '@/core/repositories/WishlistRepository';
 import { wishlistItemRepository } from '@/core/repositories/WishlistItemRepository';
-import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
 import {
   Wishlist,
   WishlistItem,
   CreateWishlistInput,
-  UserSettings,
   CURRENCIES,
 } from '@/core/models';
 import { calculateTotalAmount } from '@/shared/utils/wishlistCalculations';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 export default function WishlistsPage() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { user, authLoading } = useAuth();
+  const { userSettings, dataLoading } = useAppData();
   const [wishlists, setWishlists] = useState<Wishlist[]>([]);
   const [wishlistItems, setWishlistItems] = useState<Record<string, WishlistItem[]>>({});
   const [wishlistTotals, setWishlistTotals] = useState<Record<string, number>>({});
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [wishlistsLoading, setWishlistsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [expandedWishlists, setExpandedWishlists] = useState<Set<string>>(new Set());
-  const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
+    if (user?.uid) {
+      loadData(user.uid);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   const loadData = async (userId: string) => {
+    setWishlistsLoading(true);
     try {
-      const [wishlistsData, settingsData] = await Promise.all([
-        wishlistRepository.getAll(userId),
-        userSettingsRepository.get(userId),
-      ]);
-
+      const wishlistsData = await wishlistRepository.getAll(userId);
       setWishlists(wishlistsData);
-      setUserSettings(settingsData);
 
       // Load items for each wishlist
       const itemsMap: Record<string, WishlistItem[]> = {};
@@ -66,8 +53,7 @@ export default function WishlistsPage() {
         const items = await wishlistItemRepository.getByWishlistId(wishlist.id);
         itemsMap[wishlist.id] = items;
 
-        // Calculate total
-        const userCurrency = settingsData?.baseCurrency || 'USD';
+        const userCurrency = userSettings?.baseCurrency || 'USD';
         const total = await calculateTotalAmount(items, userCurrency);
         totalsMap[wishlist.id] = total;
       }
@@ -76,6 +62,8 @@ export default function WishlistsPage() {
       setWishlistTotals(totalsMap);
     } catch (error) {
       console.error('Failed to load wishlists:', error);
+    } finally {
+      setWishlistsLoading(false);
     }
   };
 
@@ -105,11 +93,11 @@ export default function WishlistsPage() {
     setExpandedWishlists(newExpanded);
   };
 
-  if (loading) {
+  if (authLoading || dataLoading || wishlistsLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container max-w-2xl mx-auto p-4 pb-20">
-          <p className="text-center text-muted-foreground">Loading...</p>
+        <div className="container max-w-2xl mx-auto p-4 pb-20 flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
         <BottomNav />
       </div>

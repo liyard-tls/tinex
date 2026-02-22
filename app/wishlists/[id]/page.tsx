@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import { useAuth } from '@/app/_providers/AuthProvider';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
@@ -40,7 +39,7 @@ import {
 export default function WishlistDetailPage() {
   const params = useParams();
   const wishlistId = params.id as string;
-  const [user, setUser] = useState<{ uid: string } | null>(null);
+  const { user, authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [wishlist, setWishlist] = useState<Wishlist | null>(null);
   const [items, setItems] = useState<WishlistItem[]>([]);
@@ -55,21 +54,13 @@ export default function WishlistDetailPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    if (!user?.uid) return;
+    loadData(user.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, wishlistId]);
+  }, [user?.uid, wishlistId]);
 
   const loadData = async (userId: string) => {
+    setLoading(true);
     try {
       const [wishlistData, itemsData, categoriesData, settingsData] = await Promise.all([
         wishlistRepository.getById(wishlistId),
@@ -97,6 +88,8 @@ export default function WishlistDetailPage() {
       setConfirmedAmount(confirmed);
     } catch (error) {
       console.error('Failed to load wishlist:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -177,7 +170,7 @@ export default function WishlistDetailPage() {
     return CURRENCIES.find((c) => c.value === currency)?.symbol || currency;
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-2xl mx-auto p-4 pb-20">

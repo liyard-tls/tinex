@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import BottomNav from "@/shared/components/layout/BottomNav";
 import PageHeader from "@/shared/components/layout/PageHeader";
+import { useAuth } from "@/app/_providers/AuthProvider";
+import { useAppData } from "@/app/_providers/AppDataProvider";
 import {
   Card,
   CardContent,
@@ -27,8 +27,6 @@ import {
   ParsedTransaction as PrivatParsedTransaction,
   PrivatStatementData,
 } from "@/shared/services/privatParser";
-import { accountRepository } from "@/core/repositories/AccountRepository";
-import { Account } from "@/core/models";
 import { cn } from "@/shared/utils/cn";
 
 // Unified interface
@@ -71,9 +69,8 @@ async function detectPdfBankType(file: File): Promise<"trustee" | "privat"> {
 }
 
 function ImportPageContent() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { user, authLoading } = useAuth();
+  const { accounts, dataLoading } = useAppData();
   const [selectedAccount, setSelectedAccount] = useState<string>("");
   const [importing, setImporting] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -84,21 +81,6 @@ function ImportPageContent() {
   const [error, setError] = useState<string>("");
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadAccounts(currentUser.uid);
-      } else {
-        router.push("/auth");
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
 
   // Handle shared file
   useEffect(() => {
@@ -160,58 +142,26 @@ function ImportPageContent() {
     };
   }, [searchParams]); // Changed dependency
 
-  // Update account selection when bank type changes
+  // Pre-select account when bank type or accounts change
   useEffect(() => {
-    if (user) {
-      loadAccounts(user.uid);
+    if (accounts.length === 0) return;
+
+    let preSelectedAccountId: string | undefined = undefined;
+
+    if (bankType === "monobank" || bankType === "privat") {
+      const uahAccount = accounts.find((acc) => acc.currency === "UAH");
+      preSelectedAccountId = uahAccount?.id ?? accounts[0].id;
+    } else if (bankType === "trustee") {
+      const eurAccount = accounts.find((acc) => acc.currency === "EUR");
+      preSelectedAccountId = eurAccount?.id ?? accounts[0].id;
+    } else {
+      preSelectedAccountId = accounts[0].id;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bankType, user]);
 
-  const loadAccounts = async (userId: string) => {
-    try {
-      const userAccounts = await accountRepository.getByUserId(userId);
-      setAccounts(userAccounts);
-
-      let preSelectedAccountId: string | undefined = undefined;
-
-      // Pre-select account based on bank type and currency
-      if (bankType === "monobank" || bankType === "privat") {
-        // Ukrainian banks use UAH
-        const uahAccount = userAccounts.find((acc) => acc.currency === "UAH");
-        if (uahAccount) {
-          preSelectedAccountId = uahAccount.id;
-          console.log("[Import] Pre-selected UAH account for", bankType);
-        } else if (userAccounts.length > 0) {
-          preSelectedAccountId = userAccounts[0].id;
-          console.log(
-            "[Import] No UAH account found, using first available account",
-          );
-        }
-      } else if (bankType === "trustee") {
-        // Trustee uses EUR
-        const eurAccount = userAccounts.find((acc) => acc.currency === "EUR");
-        if (eurAccount) {
-          preSelectedAccountId = eurAccount.id;
-          console.log("[Import] Pre-selected EUR account for Trustee");
-        } else if (userAccounts.length > 0) {
-          preSelectedAccountId = userAccounts[0].id;
-          console.log(
-            "[Import] No EUR account found, using first available account",
-          );
-        }
-      } else if (userAccounts.length > 0) {
-        // Fallback: select first account
-        preSelectedAccountId = userAccounts[0].id;
-      }
-
-      if (preSelectedAccountId) {
-        setSelectedAccount(preSelectedAccountId);
-      }
-    } catch (error) {
-      console.error("Failed to load accounts:", error);
+    if (preSelectedAccountId) {
+      setSelectedAccount(preSelectedAccountId);
     }
-  };
+  }, [bankType, accounts]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -227,11 +177,6 @@ function ImportPageContent() {
         setFile(selectedFile);
         setError("");
         setParsedTransactions([]);
-
-        // Pre-select account based on detected bank
-        if (user) {
-          loadAccounts(user.uid);
-        }
         return;
       }
 
@@ -244,10 +189,6 @@ function ImportPageContent() {
         setFile(selectedFile);
         setError("");
         setParsedTransactions([]);
-
-        if (user) {
-          loadAccounts(user.uid);
-        }
         return;
       }
 
@@ -359,7 +300,7 @@ function ImportPageContent() {
     parsedTransactions,
   ]);
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-2xl mx-auto p-4 pb-20">
@@ -412,7 +353,6 @@ function ImportPageContent() {
                   setFile(null);
                   setParsedTransactions([]);
                   setError("");
-                  if (user) loadAccounts(user.uid);
                 }}
                 disabled={importing}
                 className={cn(
@@ -430,7 +370,6 @@ function ImportPageContent() {
                   setFile(null);
                   setParsedTransactions([]);
                   setError("");
-                  if (user) loadAccounts(user.uid);
                 }}
                 disabled={importing}
                 className={cn(
@@ -448,7 +387,6 @@ function ImportPageContent() {
                   setFile(null);
                   setParsedTransactions([]);
                   setError("");
-                  if (user) loadAccounts(user.uid);
                 }}
                 disabled={importing}
                 className={cn(

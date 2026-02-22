@@ -3,9 +3,8 @@ import { MoreHorizontal, Check, X, Trash2, Pencil, TrendingUp, TrendingDown, Wal
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import { useAuth } from '@/app/_providers/AuthProvider';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
@@ -24,7 +23,7 @@ export default function AccountDetailPage() {
   const params = useParams();
   const accountId = params.id as string;
   const router = useRouter();
-  const [user, setUser] = useState<{ uid: string } | null>(null);
+  const { user, authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -35,21 +34,13 @@ export default function AccountDetailPage() {
   const [newBalance, setNewBalance] = useState('');
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadAccountData(accountId, currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    if (!user?.uid) return;
+    loadAccountData(accountId, user.uid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router, accountId]);
+  }, [user?.uid, accountId]);
 
   const loadAccountData = async (accountId: string, userId: string) => {
+    setLoading(true);
     try {
       // Load account details
       const accountData = await accountRepository.getById(accountId);
@@ -77,6 +68,8 @@ export default function AccountDetailPage() {
       setTransactions(accountTransactions);
     } catch (error) {
       console.error('Failed to load account data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,7 +154,7 @@ export default function AccountDetailPage() {
       .reduce((sum, t) => sum + t.amount, 0);
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

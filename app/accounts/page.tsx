@@ -1,10 +1,8 @@
 'use client';
-import { MoreHorizontal, Plus, Wallet, ArrowRight, Tag as TagIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { MoreHorizontal, Plus, Wallet, ArrowRight, Tag as TagIcon, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
@@ -14,59 +12,26 @@ import FAB from '@/shared/components/ui/FAB';
 import AddAccountForm from '@/modules/accounts/AddAccountForm';
 
 import { accountRepository } from '@/core/repositories/AccountRepository';
-import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { Account, CreateAccountInput, CURRENCIES, Transaction, Category } from '@/core/models';
+import { CreateAccountInput, CURRENCIES } from '@/core/models';
 import { formatCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 
 export default function AccountsPage() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [showAddAccount, setShowAddAccount] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  const loadData = async (userId: string) => {
-    try {
-      const [userAccounts, userTransactions, userCategories] = await Promise.all([
-        accountRepository.getByUserId(userId),
-        transactionRepository.getByUserId(userId),
-        categoryRepository.getByUserId(userId),
-      ]);
-
-      setAccounts(userAccounts);
-      setTransactions(userTransactions);
-      setCategories(userCategories);
-    } catch (error) {
-      console.error('Failed to load data:', error);
-    }
-  };
+  const { user, authLoading } = useAuth();
+  const { accounts, transactions, categories, dataLoading, refreshAccounts } = useAppData();
+  const [showAddAccount, setShowAddAccount] = useState(false);
 
   const handleAddAccount = async (data: CreateAccountInput) => {
     if (!user) return;
 
     try {
       await accountRepository.create(user.uid, data);
-      await loadData(user.uid);
+      await refreshAccounts();
       setShowAddAccount(false);
     } catch (error) {
       console.error('Failed to add account:', error);
@@ -74,11 +39,11 @@ export default function AccountsPage() {
     }
   };
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>

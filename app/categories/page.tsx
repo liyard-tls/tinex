@@ -1,19 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useState } from 'react';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
-import { Plus, Trash2, Edit, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Edit, MoreHorizontal, Loader2 } from 'lucide-react';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { Category, CreateCategoryInput, CategoryType, DEFAULT_CATEGORIES, SYSTEM_CATEGORIES } from '@/core/models';
+import { Category, CreateCategoryInput, CategoryType, SYSTEM_CATEGORIES } from '@/core/models';
 import { CATEGORY_ICONS, ICON_OPTIONS } from '@/shared/config/icons';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 const CATEGORY_COLORS = [
   '#ef4444', // red
@@ -32,64 +31,17 @@ const CATEGORY_COLORS = [
 ];
 
 export default function CategoriesPage() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { user, authLoading } = useAuth();
+  const { categories, dataLoading, refreshCategories } = useAppData();
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadCategories(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
-  const loadCategories = async (userId: string) => {
-    try {
-      const userCategories = await categoryRepository.getByUserId(userId);
-      setCategories(userCategories);
-
-      // Initialize default categories if none exist
-      if (userCategories.length === 0) {
-        await initializeDefaultCategories(userId);
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-    }
-  };
-
-  const initializeDefaultCategories = async (userId: string) => {
-    try {
-      for (const category of DEFAULT_CATEGORIES) {
-        await categoryRepository.create(userId, {
-          name: category.name,
-          type: category.type,
-          icon: category.icon,
-          color: category.color,
-        });
-      }
-      await loadCategories(userId);
-    } catch (error) {
-      console.error('Failed to initialize categories:', error);
-    }
-  };
 
   const handleAddCategory = async (data: CreateCategoryInput) => {
     if (!user) return;
 
     try {
       await categoryRepository.create(user.uid, data);
-      await loadCategories(user.uid);
+      await refreshCategories();
       setShowAddCategory(false);
     } catch (error) {
       console.error('Failed to add category:', error);
@@ -102,7 +54,7 @@ export default function CategoriesPage() {
 
     try {
       await categoryRepository.update({ id: editingCategory.id, ...data });
-      await loadCategories(user.uid);
+      await refreshCategories();
       setEditingCategory(null);
     } catch (error) {
       console.error('Failed to update category:', error);
@@ -116,17 +68,17 @@ export default function CategoriesPage() {
 
     try {
       await categoryRepository.delete(categoryId);
-      await loadCategories(user.uid);
+      await refreshCategories();
     } catch (error) {
       console.error('Failed to delete category:', error);
     }
   };
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>

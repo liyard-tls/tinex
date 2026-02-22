@@ -1,56 +1,30 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useState } from 'react';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
-import { Plus, Tag as TagIcon, Trash2, Edit } from 'lucide-react';
+import { Plus, Tag as TagIcon, Trash2, Edit, Loader2 } from 'lucide-react';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { Tag, CreateTagInput, TAG_COLORS } from '@/core/models';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 export default function TagsPage() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [tags, setTags] = useState<Tag[]>([]);
+  const { user, authLoading } = useAuth();
+  const { tags, dataLoading, refreshTags } = useAppData();
   const [showAddTag, setShowAddTag] = useState(false);
   const [editingTag, setEditingTag] = useState<Tag | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadTags(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [router]);
-
-  const loadTags = async (userId: string) => {
-    try {
-      const userTags = await tagRepository.getByUserId(userId);
-      setTags(userTags);
-    } catch (error) {
-      console.error('Failed to load tags:', error);
-    }
-  };
 
   const handleAddTag = async (data: CreateTagInput) => {
     if (!user) return;
 
     try {
       await tagRepository.create(user.uid, data);
-      await loadTags(user.uid);
+      await refreshTags();
       setShowAddTag(false);
     } catch (error) {
       console.error('Failed to add tag:', error);
@@ -63,7 +37,7 @@ export default function TagsPage() {
 
     try {
       await tagRepository.update({ id: editingTag.id, ...data });
-      await loadTags(user.uid);
+      await refreshTags();
       setEditingTag(null);
     } catch (error) {
       console.error('Failed to update tag:', error);
@@ -77,17 +51,17 @@ export default function TagsPage() {
 
     try {
       await tagRepository.delete(tagId);
-      await loadTags(user.uid);
+      await refreshTags();
     } catch (error) {
       console.error('Failed to delete tag:', error);
     }
   };
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>

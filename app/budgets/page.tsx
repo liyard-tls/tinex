@@ -2,57 +2,40 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import Modal from '@/shared/components/ui/Modal';
-import { Plus, Clock, FolderOpen } from 'lucide-react';
-import { Budget, BudgetProgress, Category, Currency } from '@/core/models';
+import { Plus, Clock, FolderOpen, Loader2 } from 'lucide-react';
+import { Budget, BudgetProgress, Currency } from '@/core/models';
 import { budgetRepository } from '@/core/repositories/BudgetRepository';
-import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import BudgetList from '@/modules/budgets/BudgetList';
 import BudgetForm from '@/modules/budgets/BudgetForm';
 import { calculateBudgetsProgress } from '@/modules/budgets/budgetProgressService';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 type GroupMode = 'period' | 'category';
 
 export default function BudgetsPage() {
   const router = useRouter();
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, authLoading } = useAuth();
+  const { categories, dataLoading } = useAppData();
+  const [budgetsLoading, setBudgetsLoading] = useState(true);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [budgetProgress, setBudgetProgress] = useState<BudgetProgress[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [userCurrency] = useState<Currency>('USD');
   const [groupMode, setGroupMode] = useState<GroupMode>('period');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
 
-  // Authentication
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      setBudgetsLoading(true);
 
-      // Load budgets and categories in parallel
-      const [budgetsData, categoriesData] = await Promise.all([
-        budgetRepository.getByUserId(user.uid),
-        categoryRepository.getByUserId(user.uid),
-      ]);
-
+      const budgetsData = await budgetRepository.getByUserId(user.uid);
       setBudgets(budgetsData);
-      setCategories(categoriesData);
 
       // Calculate progress for all budgets
       const progress = await calculateBudgetsProgress(
@@ -65,11 +48,11 @@ export default function BudgetsPage() {
     } catch (error) {
       console.error('Failed to load budgets:', error);
     } finally {
-      setLoading(false);
+      setBudgetsLoading(false);
     }
   }, [user, userCurrency]);
 
-  // Load data
+  // Load budgets data when user is available
   useEffect(() => {
     if (user) {
       loadData();
@@ -122,13 +105,18 @@ export default function BudgetsPage() {
     );
   };
 
-  if (!user) {
+  if (authLoading || dataLoading || budgetsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Please sign in to view budgets</p>
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -165,21 +153,15 @@ export default function BudgetsPage() {
       />
 
       <main className="px-4 py-4">
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading budgets...</p>
-          </div>
-        ) : (
-          <BudgetList
-            budgets={budgetProgress}
-            categories={categories}
-            currency={userCurrency}
-            groupBy={groupMode}
-            onEdit={handleEditBudget}
-            onDelete={handleDeleteBudget}
-            onClick={handleBudgetClick}
-          />
-        )}
+        <BudgetList
+          budgets={budgetProgress}
+          categories={categories}
+          currency={userCurrency}
+          groupBy={groupMode}
+          onEdit={handleEditBudget}
+          onDelete={handleDeleteBudget}
+          onClick={handleBudgetClick}
+        />
       </main>
 
       {/* Add Budget FAB */}

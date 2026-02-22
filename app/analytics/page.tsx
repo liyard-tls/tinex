@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
@@ -21,12 +21,9 @@ import {
 } from 'lucide-react';
 import Input from '@/shared/components/ui/Input';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
-import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { accountRepository } from '@/core/repositories/AccountRepository';
-import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
 import { analyticsPresetRepository } from '@/core/repositories/AnalyticsPresetRepository';
-import { Transaction, Category, Account, UserSettings, Currency, SYSTEM_CATEGORIES, AnalyticsPreset, ALL_CATEGORIES_PRESET_ID } from '@/core/models';
+import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
+import { Currency, SYSTEM_CATEGORIES, AnalyticsPreset, ALL_CATEGORIES_PRESET_ID } from '@/core/models';
 import { PresetSelector } from '@/modules/analytics';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { cn } from '@/shared/utils/cn';
@@ -64,14 +61,11 @@ function CustomTooltip({ active, payload }: TooltipProps) {
 }
 
 function AnalyticsContent() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const { user, authLoading } = useAuth();
+  const { transactions, categories, accounts, userSettings, dataLoading } = useAppData();
   const [presets, setPresets] = useState<AnalyticsPreset[]>([]);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [presetsLoaded, setPresetsLoaded] = useState(false);
   const [chartSource, setChartSource] = useState<'total' | string>('total'); // 'total' or accountId
   const [showChart, setShowChart] = useState(true);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -113,47 +107,32 @@ function AnalyticsContent() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
+  // Load presets once when user is available
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push('/auth');
+    if (!user?.uid || presetsLoaded) return;
+
+    const loadPresets = async () => {
+      try {
+        const userPresets = await analyticsPresetRepository.getByUserId(user.uid);
+        setPresets(userPresets);
+        setPresetsLoaded(true);
+      } catch (error) {
+        console.error('Failed to load presets:', error);
       }
-      setLoading(false);
-    });
+    };
 
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+    loadPresets();
+  }, [user?.uid, presetsLoaded]);
 
-  const loadData = async (userId: string) => {
-    try {
-      const [txns, userCategories, userAccounts, settings, userPresets] = await Promise.all([
-        transactionRepository.getByUserId(userId),
-        categoryRepository.getByUserId(userId),
-        accountRepository.getByUserId(userId),
-        userSettingsRepository.getOrCreate(userId),
-        analyticsPresetRepository.getByUserId(userId),
-      ]);
-
-      setTransactions(txns);
-      setCategories(userCategories);
-      setAccounts(userAccounts);
-      setUserSettings(settings);
-      setPresets(userPresets);
-
-      // Set active preset from user settings
-      if (settings.activeAnalyticsPresetId && settings.activeAnalyticsPresetId !== ALL_CATEGORIES_PRESET_ID) {
-        setActivePresetId(settings.activeAnalyticsPresetId);
-      } else {
-        setActivePresetId(null);
-      }
-    } catch (error) {
-      console.error('Failed to load analytics data:', error);
+  // Set active preset from userSettings
+  useEffect(() => {
+    if (!userSettings) return;
+    if (userSettings.activeAnalyticsPresetId && userSettings.activeAnalyticsPresetId !== ALL_CATEGORIES_PRESET_ID) {
+      setActivePresetId(userSettings.activeAnalyticsPresetId);
+    } else {
+      setActivePresetId(null);
     }
-  };
+  }, [userSettings]);
 
   // Preset handlers
   const handleSelectPreset = async (presetId: string | null) => {
@@ -639,13 +618,13 @@ function AnalyticsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartKey]);
 
-  if (loading || calculatingStats) {
+  if (authLoading || dataLoading || calculatingStats) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
           <p className="text-sm text-muted-foreground">
-            {loading ? 'Loading...' : 'Converting currencies...'}
+            {calculatingStats ? 'Converting currencies...' : 'Loading...'}
           </p>
         </div>
       </div>

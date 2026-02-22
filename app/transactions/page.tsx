@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -20,57 +18,19 @@ import {
 import TransactionListItem from '@/shared/components/ui/TransactionListItem';
 import { Filter, X, MoreHorizontal, Loader2 } from 'lucide-react';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { categoryRepository } from '@/core/repositories/CategoryRepository';
-import { tagRepository } from '@/core/repositories/TagRepository';
-import { accountRepository } from '@/core/repositories/AccountRepository';
-import { Transaction, Category, Tag, Account, SYSTEM_CATEGORIES } from '@/core/models';
+import { Transaction, SYSTEM_CATEGORIES } from '@/core/models';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
+import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 
 function TransactionsContent() {
-  const [user, setUser] = useState<{ uid: string } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const { user, authLoading } = useAuth();
+  const { transactions, categories, tags, accounts, dataLoading, refreshTransactions } = useAppData();
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser({ uid: currentUser.uid });
-        await loadData(currentUser.uid);
-      } else {
-        router.push('/auth');
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
-
-  const loadData = async (userId: string) => {
-    try {
-      const [txns, userCategories, userTags, userAccounts] = await Promise.all([
-        transactionRepository.getByUserId(userId),
-        categoryRepository.getByUserId(userId),
-        tagRepository.getByUserId(userId),
-        accountRepository.getByUserId(userId),
-      ]);
-
-      setTransactions(txns);
-      setCategories(userCategories);
-      setTags(userTags);
-      setAccounts(userAccounts);
-    } catch (error) {
-      console.error('Failed to load transactions:', error);
-    }
-  };
 
   const getAccountName = (accountId: string) => {
     return accounts.find((acc) => acc.id === accountId)?.name || 'Unknown';
@@ -92,7 +52,7 @@ function TransactionsContent() {
       });
       setShowCategorySheet(false);
       setSelectedTransaction(null);
-      await loadData(user.uid);
+      await refreshTransactions();
     } catch (error) {
       console.error('Failed to update category:', error);
     }
@@ -158,7 +118,7 @@ function TransactionsContent() {
     {} as Record<string, Transaction[]>
   );
 
-  if (loading) {
+  if (authLoading || dataLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
