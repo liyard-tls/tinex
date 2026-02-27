@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import PageHeader from "@/shared/components/layout/PageHeader";
 import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
 import TransactionListItem from "@/shared/components/ui/TransactionListItem";
@@ -194,18 +195,15 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/70 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="container flex h-14 max-w-screen-2xl items-center px-4">
-          <div className="flex-1">
-            <h1 className="text-lg font-bold gradient-text-primary">TineX</h1>
-          </div>
+      <PageHeader
+        title="TineX"
+        rightElement={
           <Button variant="ghost" size="icon" onClick={handleSignOut} className="text-muted-foreground hover:text-foreground">
             <LogOut className="h-4 w-4" />
             <span className="sr-only">Sign out</span>
           </Button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="container max-w-screen-2xl px-4 py-5 space-y-5">
 
