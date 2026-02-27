@@ -12,14 +12,14 @@
  * - PATCH: Bug fixes, small improvements
  */
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = "1.2.0";
 
 export interface ChangelogEntry {
   version: string;
   date: string; // Format: YYYY-MM-DD
   title: string; // Short title for the version
   changes: {
-    type: 'feature' | 'improvement' | 'fix' | 'breaking';
+    type: "feature" | "improvement" | "fix" | "breaking";
     text: string;
     isHighlight?: boolean; // Show in "What's New" popup
   }[];
@@ -35,30 +35,79 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.1.0',
-    date: '2025-01-31',
-    title: 'Smarter Transactions',
+    version: "1.2.0",
+    date: "2026-02-27",
+    title: "Faster & Refreshed",
     changes: [
-      { type: 'feature', text: 'What\'s New popup on app updates', isHighlight: true },
-      { type: 'feature', text: 'Changelog page in Menu' },
-      { type: 'improvement', text: 'Smarter category suggestions when adding transactions', isHighlight: true },
-      { type: 'improvement', text: 'Better navigation after deleting a transaction' },
-      { type: 'fix', text: 'Fixed error when deleting transactions' },
+      {
+        type: "improvement",
+        text: "Redesigned UI with glassmorphism style across all pages",
+        isHighlight: true,
+      },
+      {
+        type: "feature",
+        text: "Offline-first caching — app loads instantly from local cache",
+        isHighlight: true,
+      },
+      {
+        type: "improvement",
+        text: "Balances update immediately after adding or editing a transaction",
+        isHighlight: true,
+      },
     ],
   },
   {
-    version: '1.0.0',
-    date: '2025-01-31',
-    title: 'Initial Release',
+    version: "1.1.0",
+    date: "2025-01-31",
+    title: "Smarter Transactions",
     changes: [
-      { type: 'feature', text: 'Transaction tracking with categories and tags', isHighlight: true },
-      { type: 'feature', text: 'Multi-currency support with automatic conversion', isHighlight: true },
-      { type: 'feature', text: 'Bank statement import (PDF, CSV)', isHighlight: true },
-      { type: 'feature', text: 'AI-powered financial assistant', isHighlight: true },
-      { type: 'feature', text: 'Analytics and spending insights' },
-      { type: 'feature', text: 'Budget management' },
-      { type: 'feature', text: 'Wishlists' },
-      { type: 'feature', text: 'Dark theme optimized for mobile' },
+      {
+        type: "feature",
+        text: "What's New popup on app updates",
+        isHighlight: true,
+      },
+      { type: "feature", text: "Changelog page in Menu" },
+      {
+        type: "improvement",
+        text: "Smarter category suggestions when adding transactions",
+        isHighlight: true,
+      },
+      {
+        type: "improvement",
+        text: "Better navigation after deleting a transaction",
+      },
+      { type: "fix", text: "Fixed error when deleting transactions" },
+    ],
+  },
+  {
+    version: "1.0.0",
+    date: "2025-01-31",
+    title: "Initial Release",
+    changes: [
+      {
+        type: "feature",
+        text: "Transaction tracking with categories and tags",
+        isHighlight: true,
+      },
+      {
+        type: "feature",
+        text: "Multi-currency support with automatic conversion",
+        isHighlight: true,
+      },
+      {
+        type: "feature",
+        text: "Bank statement import (PDF, CSV)",
+        isHighlight: true,
+      },
+      {
+        type: "feature",
+        text: "AI-powered financial assistant",
+        isHighlight: true,
+      },
+      { type: "feature", text: "Analytics and spending insights" },
+      { type: "feature", text: "Budget management" },
+      { type: "feature", text: "Wishlists" },
+      { type: "feature", text: "Dark theme optimized for mobile" },
     ],
   },
 ];
@@ -73,26 +122,28 @@ export function getLatestChangelog(): ChangelogEntry | null {
 /**
  * Get highlighted changes for the "What's New" popup
  */
-export function getHighlightedChanges(): ChangelogEntry['changes'] {
+export function getHighlightedChanges(): ChangelogEntry["changes"] {
   const latest = getLatestChangelog();
   if (!latest) return [];
-  return latest.changes.filter(c => c.isHighlight);
+  return latest.changes.filter((c) => c.isHighlight);
 }
 
 /**
  * Get change type label and color
  */
-export function getChangeTypeConfig(type: ChangelogEntry['changes'][0]['type']) {
+export function getChangeTypeConfig(
+  type: ChangelogEntry["changes"][0]["type"],
+) {
   switch (type) {
-    case 'feature':
-      return { label: 'New', color: 'bg-emerald-500/20 text-emerald-400' };
-    case 'improvement':
-      return { label: 'Improved', color: 'bg-blue-500/20 text-blue-400' };
-    case 'fix':
-      return { label: 'Fixed', color: 'bg-amber-500/20 text-amber-400' };
-    case 'breaking':
-      return { label: 'Changed', color: 'bg-red-500/20 text-red-400' };
+    case "feature":
+      return { label: "New", color: "bg-emerald-500/20 text-emerald-400" };
+    case "improvement":
+      return { label: "Improved", color: "bg-blue-500/20 text-blue-400" };
+    case "fix":
+      return { label: "Fixed", color: "bg-amber-500/20 text-amber-400" };
+    case "breaking":
+      return { label: "Changed", color: "bg-red-500/20 text-red-400" };
     default:
-      return { label: 'Update', color: 'bg-gray-500/20 text-gray-400' };
+      return { label: "Update", color: "bg-gray-500/20 text-gray-400" };
   }
 }
