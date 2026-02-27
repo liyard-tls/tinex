@@ -80,7 +80,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTransactions = useCallback(async () => {
     if (!uid) return;
-    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions(uid) });
+    // Transactions and accounts are always coupled — any transaction mutation updates account balances
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.transactions(uid) }),
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.accounts(uid) }),
+    ]);
   }, [queryClient, uid]);
 
   const refreshAccounts = useCallback(async () => {

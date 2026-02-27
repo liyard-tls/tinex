@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import BottomNav from "@/shared/components/layout/BottomNav";
 import { useAuth } from "@/app/_providers/AuthProvider";
+import { useAppData } from "@/app/_providers/AppDataProvider";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import { Button } from "@/shared/components/ui";
 import { Input } from "@/shared/components/ui";
@@ -26,6 +27,7 @@ export default function TransactionDetailPage() {
   const returnTo = searchParams.get('returnTo');
 
   const { user, authLoading } = useAuth();
+  const { refreshTransactions } = useAppData();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -133,6 +135,7 @@ export default function TransactionDetailPage() {
           tags: selectedTags,
           excludeFromAnalytics: formData.excludeFromAnalytics,
         });
+        await refreshTransactions();
       } catch (error) {
         console.error("Failed to save transaction:", error);
       } finally {
@@ -161,6 +164,7 @@ export default function TransactionDetailPage() {
     setDeleting(true);
     try {
       await transactionRepository.delete(transactionId);
+      await refreshTransactions();
       // Navigate back to previous page after successful deletion
       if (returnTo) {
         router.push(returnTo);
