@@ -44,6 +44,11 @@ export const CHANGELOG: ChangelogEntry[] = [
         text: "Fixed exchange rate fetching and conversion logic",
         isHighlight: true,
       },
+      {
+        type: "feature",
+        text: "Transfer losses analytics",
+        isHighlight: true,
+      },
     ],
   },
   {

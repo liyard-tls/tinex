@@ -19,6 +19,7 @@ import {
   Heart,
   Sparkles,
   FileText,
+  Banknote,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { AIChatSidebar } from '@/modules/ai-chat';
@@ -34,6 +35,7 @@ const mainMenuItems = [
   { href: '/budgets', icon: PieChart, label: 'Budgets' },
   { href: '/wishlists', icon: Heart, label: 'Wishlists' },
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
+  { href: '/transfer-analytics', icon: Banknote, label: 'Transfer Analytics' },
   { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
   { href: '/import', icon: Upload, label: 'Import' },
 ];
