@@ -44,6 +44,7 @@ export class TransactionRepository {
     if (input.merchantName) transaction.merchantName = input.merchantName;
     if (input.notes) transaction.notes = input.notes;
     if (input.excludeFromAnalytics !== undefined) transaction.excludeFromAnalytics = input.excludeFromAnalytics;
+    if (input.exchangeRate !== undefined) transaction.exchangeRate = input.exchangeRate;
 
     const docRef = await addDoc(collection(db, this.collectionName), transaction);
 
@@ -328,6 +329,7 @@ export class TransactionRepository {
       merchantName: data.merchantName,
       notes: data.notes,
       excludeFromAnalytics: data.excludeFromAnalytics,
+      exchangeRate: data.exchangeRate,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };

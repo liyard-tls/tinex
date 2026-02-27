@@ -13,10 +13,11 @@ import AccountSelect from "@/shared/components/ui/AccountSelect";
 import { transactionRepository } from "@/core/repositories/TransactionRepository";
 import { accountRepository } from "@/core/repositories/AccountRepository";
 import { categoryRepository } from "@/core/repositories/CategoryRepository";
-import { Transaction, Account, Category, CURRENCIES } from "@/core/models";
+import { Transaction, Account, Category, CURRENCIES, SYSTEM_CATEGORIES } from "@/core/models";
 import { formatDate } from "date-fns";
 import { cn } from "@/shared/utils/cn";
 import { CATEGORY_ICONS } from '@/shared/config/icons';
+import { getExchangeRate } from "@/shared/services/currencyService";
 
 
 export default function TransactionDetailPage() {
@@ -27,7 +28,7 @@ export default function TransactionDetailPage() {
   const returnTo = searchParams.get('returnTo');
 
   const { user, authLoading } = useAuth();
-  const { refreshTransactions } = useAppData();
+  const { refreshTransactions, userSettings } = useAppData();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -122,6 +123,25 @@ export default function TransactionDetailPage() {
       try {
         const dateTime = new Date(`${formData.date}T${formData.time}`);
 
+        // For transfer transactions: record exchangeRate (currency → baseCurrency) if not yet stored
+        let exchangeRate: number | undefined = transaction.exchangeRate;
+        if (exchangeRate === undefined && userSettings?.baseCurrency) {
+          const selectedCategory = categories.find((c) => c.id === formData.categoryId);
+          const isTransfer =
+            selectedCategory?.name === SYSTEM_CATEGORIES.TRANSFER_OUT ||
+            selectedCategory?.name === SYSTEM_CATEGORIES.TRANSFER_IN;
+          if (isTransfer) {
+            const baseCurrency = userSettings.baseCurrency;
+            const txnCurrency = transaction.currency;
+            if (txnCurrency !== baseCurrency) {
+              // rate = how many baseCurrency per 1 txnCurrency
+              exchangeRate = await getExchangeRate(txnCurrency as Parameters<typeof getExchangeRate>[0], baseCurrency as Parameters<typeof getExchangeRate>[1]);
+            } else {
+              exchangeRate = 1;
+            }
+          }
+        }
+
         await transactionRepository.update({
           id: transactionId,
           type: formData.type,
@@ -134,7 +154,14 @@ export default function TransactionDetailPage() {
           notes: formData.notes,
           tags: selectedTags,
           excludeFromAnalytics: formData.excludeFromAnalytics,
+          ...(exchangeRate !== undefined && { exchangeRate }),
         });
+
+        // Cache exchangeRate locally so we don't re-fetch on subsequent saves
+        if (exchangeRate !== undefined && transaction.exchangeRate === undefined) {
+          setTransaction({ ...transaction, exchangeRate });
+        }
+
         await refreshTransactions();
       } catch (error) {
         console.error("Failed to save transaction:", error);

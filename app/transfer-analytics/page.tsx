@@ -8,7 +8,7 @@ import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
 import { useAuth } from '@/app/_providers/AuthProvider';
 import { useAppData } from '@/app/_providers/AppDataProvider';
-import { formatCurrency, convertCurrency, getExchangeRate } from '@/shared/services/currencyService';
+import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { Currency, SYSTEM_CATEGORIES, Transaction } from '@/core/models';
 import { cn } from '@/shared/utils/cn';
 import {
@@ -159,8 +159,17 @@ export default function TransferAnalyticsPage() {
       const result: TransferPair[] = [];
 
       for (const { out, in: inTxn } of rawPairs) {
-        const sentBase = await convertCurrency(out.amount, out.currency, baseCurrency);
-        const receivedBase = await convertCurrency(inTxn.amount, inTxn.currency, baseCurrency);
+        // Use stored exchangeRate (currency → baseCurrency) when available for historical accuracy.
+        // exchangeRate = how many baseCurrency per 1 txnCurrency.
+        // Fall back to current rate via convertCurrency for old transactions without stored rate.
+        const sentBase =
+          out.exchangeRate !== undefined
+            ? out.amount * out.exchangeRate
+            : await convertCurrency(out.amount, out.currency, baseCurrency);
+        const receivedBase =
+          inTxn.exchangeRate !== undefined
+            ? inTxn.amount * inTxn.exchangeRate
+            : await convertCurrency(inTxn.amount, inTxn.currency, baseCurrency);
         const diff = receivedBase - sentBase;
         const diffPct = sentBase !== 0 ? (diff / sentBase) * 100 : 0;
 
@@ -170,10 +179,14 @@ export default function TransferAnalyticsPage() {
             ? inTxn.amount / out.amount
             : 0;
 
-        // Market rate via cross-rate
+        // Market rate = how many inCurrency per 1 outCurrency at time of transfer.
+        // Both exchangeRates are stored as (baseCurrency per 1 currency).
+        // marketRate = out.exchangeRate / inTxn.exchangeRate
+        // Show only if both transactions have stored rates (new transactions).
+        const hasStoredRates = out.exchangeRate !== undefined && inTxn.exchangeRate !== undefined;
         const marketRate =
-          out.currency !== inTxn.currency
-            ? await getExchangeRate(out.currency, inTxn.currency)
+          out.currency !== inTxn.currency && hasStoredRates && inTxn.exchangeRate! > 0
+            ? out.exchangeRate! / inTxn.exchangeRate!
             : 0;
 
         result.push({
@@ -402,7 +415,7 @@ export default function TransferAnalyticsPage() {
                           </p>
                           {best.sentCurrency !== best.receivedCurrency && best.actualRate > 0 && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              Rate: {best.actualRate.toFixed(4)} (market: {best.marketRate.toFixed(4)})
+                              Rate: {best.actualRate.toFixed(4)}{best.marketRate > 0 ? ` (market: ${best.marketRate.toFixed(4)})` : ''}
                             </p>
                           )}
                           <p className={cn('text-sm font-semibold mt-1', diffColor(best.diff))}>
@@ -441,7 +454,7 @@ export default function TransferAnalyticsPage() {
                           </p>
                           {worst.sentCurrency !== worst.receivedCurrency && worst.actualRate > 0 && (
                             <p className="text-xs text-muted-foreground mt-0.5">
-                              Rate: {worst.actualRate.toFixed(4)} (market: {worst.marketRate.toFixed(4)})
+                              Rate: {worst.actualRate.toFixed(4)}{worst.marketRate > 0 ? ` (market: ${worst.marketRate.toFixed(4)})` : ''}
                             </p>
                           )}
                           <p className={cn('text-sm font-semibold mt-1', diffColor(worst.diff))}>
@@ -510,9 +523,9 @@ export default function TransferAnalyticsPage() {
                           </span>
                         </div>
                       </div>
-                      {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && p.marketRate > 0 && (
+                      {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && (
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Effective rate {p.actualRate.toFixed(4)} vs market {p.marketRate.toFixed(4)}
+                          Rate: {p.actualRate.toFixed(4)}{p.marketRate > 0 ? ` (market: ${p.marketRate.toFixed(4)})` : ' · no market rate'}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-2">

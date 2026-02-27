@@ -35,7 +35,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
 
   const { data: transactions = [], isLoading: txLoading } = useQuery({
     queryKey: QUERY_KEYS.transactions(uid ?? ''),
-    queryFn: () => transactionRepository.getByUserId(uid!, { limitCount: 100 }),
+    queryFn: () => transactionRepository.getByUserId(uid!),
     enabled: !!uid,
     staleTime: 5 * 60 * 1000,
   });
