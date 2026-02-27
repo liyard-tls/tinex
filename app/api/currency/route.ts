@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // Cache for exchange rates
-let exchangeRatesCache: { rates: Record<string, number>; timestamp: number } | null = null;
-const CACHE_DURATION = 3600000; // 1 hour in milliseconds
+let exchangeRatesCache: { rates: Record<string, number>; expiresAt: number } | null = null;
 
 /**
  * Fallback exchange rates (approximate values)
@@ -27,8 +26,8 @@ function getFallbackRates(): Record<string, number> {
  * API key is stored server-side only
  */
 async function fetchExchangeRates(): Promise<Record<string, number>> {
-  // Check cache first
-  if (exchangeRatesCache && Date.now() - exchangeRatesCache.timestamp < CACHE_DURATION) {
+  // Check cache — expires at the time the provider publishes new rates
+  if (exchangeRatesCache && Date.now() < exchangeRatesCache.expiresAt) {
     return exchangeRatesCache.rates;
   }
 
@@ -59,11 +58,12 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
     // ExchangeRate API returns conversion_rates object with USD as base
     const rates: Record<string, number> = data.conversion_rates;
 
-    // Cache the rates
-    exchangeRatesCache = {
-      rates,
-      timestamp: Date.now(),
-    };
+    // Use the provider's own next-update timestamp, but only if it's in the future.
+    // Free-tier keys may return stale data with a past next-update time — fall back to 1 hour.
+    const providerExpiry = data.time_next_update_unix ? data.time_next_update_unix * 1000 : 0;
+    const expiresAt = providerExpiry > Date.now() ? providerExpiry : Date.now() + 3600000;
+
+    exchangeRatesCache = { rates, expiresAt };
 
     return rates;
   } catch (error) {
@@ -79,12 +79,12 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
 export async function GET() {
   try {
     const rates = await fetchExchangeRates();
+    const expiresAt = exchangeRatesCache?.expiresAt ?? Date.now() + 3600000;
 
     return NextResponse.json({
       success: true,
       rates,
-      timestamp: Date.now(),
-      cached: exchangeRatesCache !== null,
+      expiresAt,
     });
   } catch (error) {
     console.error('Currency API error:', error);

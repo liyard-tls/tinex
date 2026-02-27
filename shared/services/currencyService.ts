@@ -1,11 +1,10 @@
 import { Currency } from "@/core/models";
 
-// Exchange rates cache
+// Exchange rates cache — expires at the same time as the provider's next update
 let exchangeRatesCache: {
   rates: Record<string, number>;
-  timestamp: number;
+  expiresAt: number;
 } | null = null;
-const CACHE_DURATION = 3600000; // 1 hour in milliseconds
 
 /**
  * Fetches exchange rates from our Next.js API route
@@ -13,11 +12,8 @@ const CACHE_DURATION = 3600000; // 1 hour in milliseconds
  * This keeps the API key secure and not exposed to the client
  */
 async function fetchExchangeRates(): Promise<Record<string, number>> {
-  // Check cache first
-  if (
-    exchangeRatesCache &&
-    Date.now() - exchangeRatesCache.timestamp < CACHE_DURATION
-  ) {
+  // Check cache — expires when the provider publishes new rates
+  if (exchangeRatesCache && Date.now() < exchangeRatesCache.expiresAt) {
     return exchangeRatesCache.rates;
   }
 
@@ -35,10 +31,10 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
       throw new Error("Invalid response from currency API");
     }
 
-    // Cache the rates
+    // Cache until the provider's next update (passed from the API route)
     exchangeRatesCache = {
       rates: data.rates,
-      timestamp: Date.now(),
+      expiresAt: data.expiresAt ?? Date.now() + 3600000,
     };
 
     return data.rates;

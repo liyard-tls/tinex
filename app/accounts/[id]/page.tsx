@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 
 import BottomNav from '@/shared/components/layout/BottomNav';
 import { useAuth } from '@/app/_providers/AuthProvider';
+import { useAppData } from '@/app/_providers/AppDataProvider';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
@@ -24,6 +25,7 @@ export default function AccountDetailPage() {
   const accountId = params.id as string;
   const router = useRouter();
   const { user, authLoading } = useAuth();
+  const { refreshAccounts } = useAppData();
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -78,6 +80,7 @@ export default function AccountDetailPage() {
 
     try {
       await accountRepository.setDefault(user.uid, account.id);
+      await refreshAccounts();
       await loadAccountData(accountId, user.uid);
     } catch (error) {
       console.error('Failed to set default account:', error);
@@ -92,6 +95,7 @@ export default function AccountDetailPage() {
         id: account.id,
         isSaving: !account.isSaving,
       });
+      await refreshAccounts();
       await loadAccountData(accountId, user.uid);
     } catch (error) {
       console.error('Failed to toggle saving status:', error);
@@ -103,6 +107,7 @@ export default function AccountDetailPage() {
 
     try {
       await accountRepository.delete(account.id);
+      await refreshAccounts();
       router.push('/accounts');
     } catch (error) {
       console.error('Failed to delete account:', error);
@@ -126,6 +131,7 @@ export default function AccountDetailPage() {
 
     try {
       await accountRepository.updateBalance(account.id, parsedBalance);
+      await refreshAccounts();
       setEditingBalance(false);
       await loadAccountData(accountId, user.uid);
     } catch (error) {

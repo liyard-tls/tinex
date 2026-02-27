@@ -35,6 +35,18 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.3.0alpha",
+    date: "2026-02-27",
+    title: "WIP",
+    changes: [
+      {
+        type: "fix",
+        text: "Fixed exchange rate fetching and conversion logic",
+        isHighlight: true,
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-02-27",
     title: "Faster & Refreshed",
