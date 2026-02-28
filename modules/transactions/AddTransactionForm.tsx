@@ -6,7 +6,6 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { Button } from '@/shared/components/ui';
 import Input from '@/shared/components/ui/Input';
-import AccountSelect from '@/shared/components/ui/AccountSelect';
 import { CreateTransactionInput, TransactionType, Account, Category, Tag, Transaction } from '@/core/models';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
@@ -19,21 +18,25 @@ import { CATEGORY_ICONS } from '@/shared/config/icons';
 import { detectCategoryFromDescription, matchCategoryByName } from '@/shared/utils/categoryMatcher';
 import Toast from '@/shared/components/ui/Toast';
 
+export const ADD_TRANSACTION_FORM_ID = 'add-transaction-form';
+
 interface AddTransactionFormProps {
   onSubmit: (data: CreateTransactionInput, currency: string) => Promise<void>;
   onCancel: () => void;
   accounts: Account[];
+  onLoadingChange?: (loading: boolean) => void;
 }
 
-export default function AddTransactionForm({ onSubmit, onCancel, accounts }: AddTransactionFormProps) {
+export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoadingChange }: AddTransactionFormProps) {
   const [loading, setLoading] = useState(false);
+  useEffect(() => { onLoadingChange?.(loading); }, [loading, onLoadingChange]);
+
   const [type, setType] = useState<TransactionType>('expense');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [existingTransactions, setExistingTransactions] = useState<Transaction[]>([]);
@@ -125,7 +128,6 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setValue('categoryId', categoryId, { shouldValidate: true });
-    setShowCategoryDropdown(false);
     setCategoryManuallySelected(true);
   };
 
@@ -192,6 +194,22 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
   const filteredCategories = categories.filter((cat) => cat.type === type);
   const currencySymbol = CURRENCIES.find((c) => c.value === selectedCurrency)?.symbol || '$';
 
+  // Sort accounts and categories by usage frequency (last 30 days)
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recentTxns = existingTransactions.filter(
+    (t) => (t.date instanceof Date ? t.date : (t.date as any).toDate?.() ?? new Date(t.date as any)).getTime() >= thirtyDaysAgo
+  );
+
+  const accountUsage: Record<string, number> = {};
+  const categoryUsage: Record<string, number> = {};
+  for (const t of recentTxns) {
+    accountUsage[t.accountId] = (accountUsage[t.accountId] ?? 0) + 1;
+    if (t.categoryId) categoryUsage[t.categoryId] = (categoryUsage[t.categoryId] ?? 0) + 1;
+  }
+
+  const sortedAccounts = [...accounts].sort((a, b) => (accountUsage[b.id] ?? 0) - (accountUsage[a.id] ?? 0));
+  const sortedCategories = [...filteredCategories].sort((a, b) => (categoryUsage[b.id] ?? 0) - (categoryUsage[a.id] ?? 0));
+
   return (
     <>
       {/* Success Notification - Rendered via portal outside the form */}
@@ -204,7 +222,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         document.body
       )}
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+      <form id={ADD_TRANSACTION_FORM_ID} onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
         {/* Type Toggle */}
       <div className="flex gap-2">
         <button
@@ -241,31 +259,75 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         </button>
       </div>
 
-      {/* Account Selector */}
-      <AccountSelect
-        accounts={accounts}
-        value={selectedAccountId}
-        onChange={handleAccountChange}
-        disabled={loading}
-        required
-      />
-
-      {/* Amount */}
+      {/* Account Gallery */}
       <div>
-        <label className="text-xs font-medium mb-1.5 block">
-          Amount ({currencySymbol})
-        </label>
-        <Input
-          type="number"
-          step="0.01"
-          placeholder="0.00"
-          {...register('amount', {
-            required: 'Amount is required',
-            min: { value: 0.01, message: 'Amount must be greater than 0' },
+        <label className="text-xs font-medium mb-2 block">Account</label>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {sortedAccounts.map((acc) => {
+            const IconComponent = CATEGORY_ICONS[acc.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
+            const isSelected = selectedAccountId === acc.id;
+            const color = acc.color || '#6b7280';
+            return (
+              <button
+                key={acc.id}
+                type="button"
+                onClick={() => handleAccountChange(acc.id)}
+                disabled={loading}
+                className={cn(
+                  'flex-shrink-0 flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all',
+                  'min-w-[72px] text-center',
+                  isSelected
+                    ? 'border-transparent shadow-sm'
+                    : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                )}
+                style={isSelected ? { backgroundColor: `${color}22`, borderColor: `${color}60` } : {}}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: `${color}22` }}
+                >
+                  <IconComponent className="h-4 w-4" style={{ color }} />
+                </div>
+                <span className="text-xs font-medium leading-tight truncate max-w-[64px]">{acc.name}</span>
+                <span className="text-[10px] text-muted-foreground leading-none">
+                  {CURRENCIES.find(c => c.value === acc.currency)?.symbol || acc.currency}
+                </span>
+              </button>
+            );
           })}
-          error={errors.amount?.message}
-          disabled={loading || accounts.length === 0}
-        />
+        </div>
+      </div>
+
+      {/* Amount + Fee */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="text-xs font-medium mb-1.5 block">Amount ({currencySymbol})</label>
+          <Input
+            type="number"
+            step="0.01"
+            placeholder="0.00"
+            {...register('amount', {
+              required: 'Amount is required',
+              min: { value: 0.01, message: 'Amount must be greater than 0' },
+            })}
+            error={errors.amount?.message}
+            disabled={loading || accounts.length === 0}
+          />
+        </div>
+        <div>
+          <label className="text-xs font-medium mb-1.5 block">Fee ({currencySymbol})</label>
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="0.00"
+            {...register('fee', {
+              min: { value: 0, message: 'Fee must be 0 or greater' },
+            })}
+            error={errors.fee?.message}
+            disabled={loading}
+          />
+        </div>
       </div>
 
       {/* Description */}
@@ -283,79 +345,40 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         />
       </div>
 
-      {/* Category - Custom dropdown with icons */}
-      <div className="relative">
+      {/* Category Gallery */}
+      <div>
         <input type="hidden" {...register('categoryId', { required: 'Category is required' })} />
-        <label className="text-xs font-medium mb-1.5 block">Category</label>
-        <button
-          type="button"
-          onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-          className={cn(
-            "flex h-9 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-            errors.categoryId ? "border-destructive" : "border-input"
-          )}
-          disabled={loading}
-        >
-          {selectedCategoryId ? (
-            <div className="flex items-center gap-2">
-              {(() => {
-                const cat = filteredCategories.find(c => c.id === selectedCategoryId);
-                if (!cat) return 'Select category';
-                const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
-                return (
-                  <>
-                    <div
-                      className="w-5 h-5 rounded flex items-center justify-center"
-                      style={{ backgroundColor: `${cat.color}20` }}
-                    >
-                      <IconComponent className="h-3 w-3" style={{ color: cat.color }} />
-                    </div>
-                    <span>{cat.name}</span>
-                  </>
-                );
-              })()}
-            </div>
-          ) : (
-            <span className="text-muted-foreground">Select category</span>
-          )}
-          <svg
-            className={cn("h-4 w-4 transition-transform", showCategoryDropdown && "rotate-180")}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Dropdown menu */}
-        {showCategoryDropdown && (
-          <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-background shadow-lg max-h-60 overflow-auto">
-            {filteredCategories.map((cat) => {
-              const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => handleCategorySelect(cat.id)}
-                  className={cn(
-                    "flex items-center gap-2 w-full px-3 py-2 text-sm hover:bg-muted transition-colors",
-                    selectedCategoryId === cat.id && "bg-muted"
-                  )}
+        <label className="text-xs font-medium mb-2 block">Category</label>
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          {sortedCategories.map((cat) => {
+            const IconComponent = CATEGORY_ICONS[cat.icon as keyof typeof CATEGORY_ICONS] || MoreHorizontal;
+            const isSelected = selectedCategoryId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleCategorySelect(cat.id)}
+                disabled={loading}
+                className={cn(
+                  'flex-shrink-0 flex flex-col items-center gap-1.5 px-3 py-2.5 rounded-xl border transition-all',
+                  'min-w-[64px] text-center',
+                  isSelected
+                    ? 'border-transparent shadow-sm'
+                    : 'border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]'
+                )}
+                style={isSelected ? { backgroundColor: `${cat.color}22`, borderColor: `${cat.color}60` } : {}}
+              >
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: `${cat.color}22` }}
                 >
-                  <div
-                    className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: `${cat.color}20` }}
-                  >
-                    <IconComponent className="h-4 w-4" style={{ color: cat.color }} />
-                  </div>
-                  <span>{cat.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
+                  <IconComponent className="h-4 w-4" style={{ color: cat.color }} />
+                </div>
+                <span className="text-xs font-medium leading-tight truncate max-w-[56px]">{cat.name}</span>
+              </button>
+            );
+          })}
+        </div>
         {errors.categoryId && (
           <p className="mt-1 text-xs text-destructive">{errors.categoryId.message}</p>
         )}
@@ -431,23 +454,8 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         />
       </div>
 
-      {/* Fee (optional) */}
-      <div>
-        <label className="text-xs font-medium mb-1.5 block">Fee (Optional)</label>
-        <Input
-          type="number"
-          step="0.01"
-          min="0"
-          placeholder={`0.00 (${currencySymbol})`}
-          {...register('fee', {
-            min: { value: 0, message: 'Fee must be 0 or greater' },
-          })}
-          error={errors.fee?.message}
-          disabled={loading}
-        />
-      </div>
 
-      {/* Notes (optional) */}
+{/* Notes (optional) */}
       <div>
         <label className="text-xs font-medium mb-1.5 block">Notes (Optional)</label>
         <textarea
@@ -458,21 +466,6 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
         />
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 pt-2">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" className="flex-1" isLoading={loading} disabled={loading}>
-          Add Transaction
-        </Button>
-        </div>
       </form>
     </>
   );

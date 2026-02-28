@@ -11,8 +11,8 @@ import BottomNav from "@/shared/components/layout/BottomNav";
 import BottomSheet from "@/shared/components/ui/BottomSheet";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import FAB from "@/shared/components/ui/FAB";
-import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
-import AddTransferForm from "@/modules/transactions/AddTransferForm";
+import AddTransactionForm, { ADD_TRANSACTION_FORM_ID } from "@/modules/transactions/AddTransactionForm";
+import AddTransferForm, { ADD_TRANSFER_FORM_ID } from "@/modules/transactions/AddTransferForm";
 import TransactionListItem from "@/shared/components/ui/TransactionListItem";
 import WhatsNewPopup from "@/shared/components/ui/WhatsNewPopup";
 import { useAuth } from "@/app/_providers/AuthProvider";
@@ -42,7 +42,9 @@ export default function DashboardPage() {
   const { user, authLoading, signOut } = useAuth();
   const { transactions, accounts, categories, tags, userSettings, dataLoading, refreshTransactions } = useAppData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [addTransactionLoading, setAddTransactionLoading] = useState(false);
   const [showAddTransfer, setShowAddTransfer] = useState(false);
+  const [addTransferLoading, setAddTransferLoading] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [stats, setStats] = useState({
     income: 0,
@@ -496,10 +498,32 @@ export default function DashboardPage() {
         open={showAddTransaction}
         onClose={() => setShowAddTransaction(false)}
         title="Add Transaction"
+        footer={
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowAddTransaction(false)}
+              disabled={addTransactionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={ADD_TRANSACTION_FORM_ID}
+              className="flex-1"
+              disabled={addTransactionLoading}
+            >
+              {addTransactionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Transaction'}
+            </Button>
+          </div>
+        }
       >
         <AddTransactionForm
           onSubmit={handleAddTransaction}
           onCancel={() => setShowAddTransaction(false)}
+          onLoadingChange={setAddTransactionLoading}
           accounts={allAccounts}
         />
       </BottomSheet>
@@ -509,6 +533,27 @@ export default function DashboardPage() {
         open={showAddTransfer}
         onClose={() => setShowAddTransfer(false)}
         title="Add Transfer"
+        footer={
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowAddTransfer(false)}
+              disabled={addTransferLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form={ADD_TRANSFER_FORM_ID}
+              className="flex-1"
+              disabled={addTransferLoading}
+            >
+              {addTransferLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Transfer'}
+            </Button>
+          </div>
+        }
       >
         <AddTransferForm
           onSuccess={async () => {
@@ -516,6 +561,7 @@ export default function DashboardPage() {
             setShowAddTransfer(false);
           }}
           onCancel={() => setShowAddTransfer(false)}
+          onLoadingChange={setAddTransferLoading}
           accounts={allAccounts}
         />
       </BottomSheet>

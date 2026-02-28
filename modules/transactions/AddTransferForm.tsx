@@ -27,14 +27,18 @@ interface TransferFormData {
   notes: string;
 }
 
+export const ADD_TRANSFER_FORM_ID = 'add-transfer-form';
+
 interface AddTransferFormProps {
   onSuccess: () => Promise<void>;
   onCancel: () => void;
   accounts: Account[];
+  onLoadingChange?: (loading: boolean) => void;
 }
 
-export default function AddTransferForm({ onSuccess, onCancel, accounts }: AddTransferFormProps) {
+export default function AddTransferForm({ onSuccess, onCancel, accounts, onLoadingChange }: AddTransferFormProps) {
   const [loading, setLoading] = useState(false);
+  useEffect(() => { onLoadingChange?.(loading); }, [loading, onLoadingChange]);
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -203,7 +207,7 @@ export default function AddTransferForm({ onSuccess, onCancel, accounts }: AddTr
         document.body
       )}
 
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+      <form id={ADD_TRANSFER_FORM_ID} onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
 
         {/* From account */}
         <div>
@@ -332,15 +336,6 @@ export default function AddTransferForm({ onSuccess, onCancel, accounts }: AddTr
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={loading}>
-            Cancel
-          </Button>
-          <Button type="submit" className="flex-1" isLoading={loading} disabled={loading || fromAccountId === toAccountId}>
-            Add Transfer
-          </Button>
-        </div>
       </form>
     </>
   );
