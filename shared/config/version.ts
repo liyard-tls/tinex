@@ -12,7 +12,7 @@
  * - PATCH: Bug fixes, small improvements
  */
 
-export const APP_VERSION = "1.2.0";
+export const APP_VERSION = "1.3.0";
 
 export interface ChangelogEntry {
   version: string;
@@ -35,19 +35,49 @@ export interface ChangelogEntry {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: "1.3.0alpha",
-    date: "2026-02-27",
-    title: "WIP",
+    version: "1.3.0",
+    date: "2026-02-28",
+    title: "Transfers & Smooth Navigation",
     changes: [
       {
-        type: "fix",
-        text: "Fixed exchange rate fetching and conversion logic",
+        type: "feature",
+        text: "Transfer losses analytics — track currency conversion losses across all transfers",
         isHighlight: true,
       },
       {
         type: "feature",
-        text: "Transfer losses analytics",
+        text: "Transfer form — add transfers between accounts directly from the dashboard",
         isHighlight: true,
+      },
+      {
+        type: "improvement",
+        text: "Transaction form redesigned with a smooth bottom sheet",
+        isHighlight: true,
+      },
+      {
+        type: "improvement",
+        text: "Account page redesigned — currency gallery, settings panel, and smooth animations",
+      },
+      {
+        type: "feature",
+        text: "Swipe navigation — swipe left/right to switch between main pages",
+        isHighlight: true,
+      },
+      {
+        type: "feature",
+        text: "Transaction fee field — record bank fees on transfers and transactions",
+      },
+      {
+        type: "improvement",
+        text: "Animated bottom nav with sliding glow indicator",
+      },
+      {
+        type: "fix",
+        text: "Fixed exchange rate fetching and conversion logic",
+      },
+      {
+        type: "fix",
+        text: "Fixed transaction update not reflecting correct exchange rates",
       },
     ],
   },
