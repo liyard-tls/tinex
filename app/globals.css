@@ -88,6 +88,22 @@
   from { opacity: 1; transform: translateY(0) scale(1); }
   to   { opacity: 0; transform: translateY(8px) scale(0.97); }
 }
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+html[data-swipe="left"] main {
+  animation: slide-in-from-right 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+html[data-swipe="right"] main {
+  animation: slide-in-from-left 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
 @keyframes expand-down {
   from { max-height: 0; opacity: 0; }
   to   { max-height: 600px; opacity: 1; }

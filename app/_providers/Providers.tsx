@@ -6,6 +6,12 @@ import { makeQueryClient } from './queryClient';
 import { querySerializer } from './querySerializer';
 import { AuthProvider } from './AuthProvider';
 import { AppDataProvider } from './AppDataProvider';
+import { useSwipeNavigation } from '@/shared/hooks/useSwipeNavigation';
+
+function SwipeNavigationHandler() {
+  useSwipeNavigation();
+  return null;
+}
 
 // Singleton QueryClient — created once outside of render
 const queryClient = makeQueryClient();
@@ -32,7 +38,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }}
     >
       <AuthProvider queryClient={queryClient}>
-        <AppDataProvider>{children}</AppDataProvider>
+        <AppDataProvider>
+          <SwipeNavigationHandler />
+          {children}
+        </AppDataProvider>
       </AuthProvider>
     </PersistQueryClientProvider>
   );
