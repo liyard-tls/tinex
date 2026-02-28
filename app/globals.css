@@ -84,6 +84,18 @@
   from { opacity: 0; transform: translateY(12px) scale(0.95); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes action-pop-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(8px) scale(0.97); }
+}
+@keyframes expand-down {
+  from { max-height: 0; opacity: 0; }
+  to   { max-height: 600px; opacity: 1; }
+}
+@keyframes collapse-up {
+  from { max-height: 600px; opacity: 1; }
+  to   { max-height: 0; opacity: 0; }
+}
 
 @layer utilities {
   .scrollbar-hide {
