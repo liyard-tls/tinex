@@ -540,96 +540,102 @@ export default function TransferAnalyticsPage() {
               </div>
             )}
 
-            {/* ── Transfer History Timeline ────────────────────────────────── */}
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Transfer History</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {[...pairs].reverse().map((p, idx) => (
-                    <div key={idx} className="px-4 py-3">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-xs text-muted-foreground">
-                          {p.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </p>
-                        <p className={cn('text-xs font-semibold', diffColor(p.diff))}>
-                          {p.diffPct >= 0 ? '+' : ''}{p.diffPct.toFixed(2)}%
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm">
-                          <span className="font-medium">{p.sentAmount.toLocaleString()} {p.sentCurrency}</span>
-                          {p.sentCurrency !== p.receivedCurrency ? (
-                            <>
-                              <ArrowRightLeft className="h-3 w-3 inline mx-1 text-muted-foreground" />
-                              <span className="font-medium">{p.receivedAmount.toLocaleString()} {p.receivedCurrency}</span>
-                            </>
-                          ) : (
-                            <span className="text-xs text-muted-foreground ml-1">(same currency)</span>
+            {/* ── Transfer History ─────────────────────────────────────────── */}
+            <div>
+              <p className="text-sm font-semibold px-1 mb-3">Transfer History</p>
+              <div className="space-y-3">
+                {[...pairs].reverse().map((p, idx) => {
+                  const unlinkKey = p.outTxn.pairId || p.outTxn.id;
+                  const isUnlinking = unlinkingPairId === unlinkKey;
+                  return (
+                    <Card key={idx}>
+                      <CardContent className="p-0">
+                        {/* Header row: date + diff */}
+                        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+                          <p className="text-xs text-muted-foreground">
+                            {p.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            {Math.abs(p.diff) < 0.005
+                              ? <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                              : p.diff > 0
+                                ? <TrendingUp className="h-3 w-3 text-success" />
+                                : <TrendingDown className="h-3 w-3 text-destructive" />
+                            }
+                            <span className={cn('text-sm font-semibold', diffColor(p.diff))}>
+                              {formatCurrency(p.diff, baseCurrency)}
+                            </span>
+                            <span className={cn('text-xs', diffColor(p.diff))}>
+                              ({p.diffPct >= 0 ? '+' : ''}{p.diffPct.toFixed(2)}%)
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Out / In columns */}
+                        <div className="grid grid-cols-2 border-t border-border">
+                          {/* OUT */}
+                          <div className="px-3 py-2.5 border-r border-border">
+                            <p className="text-[10px] font-semibold text-destructive/70 uppercase tracking-wide mb-1">Out</p>
+                            <p className="text-sm font-semibold">{p.sentAmount.toLocaleString()} {p.sentCurrency}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.outTxn.description}</p>
+                            {p.outTxn.fee !== undefined && p.outTxn.fee > 0 && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                fee {p.outTxn.fee.toLocaleString()} {p.sentCurrency}
+                              </p>
+                            )}
+                            <Link
+                              href={`/transactions/${p.outTxn.id}?returnTo=/transfer-analytics`}
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1.5"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Open
+                            </Link>
+                          </div>
+
+                          {/* IN */}
+                          <div className="px-3 py-2.5">
+                            <p className="text-[10px] font-semibold text-success/70 uppercase tracking-wide mb-1">In</p>
+                            <p className="text-sm font-semibold">{p.receivedAmount.toLocaleString()} {p.receivedCurrency}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.inTxn.description}</p>
+                            <Link
+                              href={`/transactions/${p.inTxn.id}?returnTo=/transfer-analytics`}
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1.5"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Open
+                            </Link>
+                          </div>
+                        </div>
+
+                        {/* Footer: unlink + sent base + rate */}
+                        <div className="flex items-center justify-between px-4 py-2 border-t border-border">
+                          <button
+                            onClick={() => handleUnlink(p)}
+                            disabled={isUnlinking}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                          >
+                            {isUnlinking
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Link2Off className="h-3 w-3" />
+                            }
+                            Unlink
+                          </button>
+                          {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              rate {p.actualRate.toFixed(4)}
+                              {p.marketRate > 0
+                                ? <span className="text-muted-foreground/60"> · mkt {p.marketRate.toFixed(4)}</span>
+                                : <span className="text-muted-foreground/40"> · no mkt rate</span>
+                              }
+                            </p>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <div className="text-xs text-muted-foreground">
-                          {formatCurrency(p.sentBase, baseCurrency)} sent
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {Math.abs(p.diff) < 0.005
-                            ? <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
-                            : p.diff > 0
-                              ? <TrendingUp className="h-3 w-3 text-success" />
-                              : <TrendingDown className="h-3 w-3 text-destructive" />
-                          }
-                          <span className={cn('text-xs font-medium', diffColor(p.diff))}>
-                            {formatCurrency(p.diff, baseCurrency)}
-                          </span>
-                        </div>
-                      </div>
-                      {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Rate: {p.actualRate.toFixed(4)}{p.marketRate > 0 ? ` (market: ${p.marketRate.toFixed(4)})` : ' · no market rate'}
-                        </p>
-                      )}
-                      {p.outTxn.fee !== undefined && p.outTxn.fee > 0 && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Fee: {p.outTxn.fee.toLocaleString()} {p.sentCurrency}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-2">
-                        <Link
-                          href={`/transactions/${p.outTxn.id}?returnTo=/transfer-analytics`}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Transfer Out
-                        </Link>
-                        <span className="text-muted-foreground/40">·</span>
-                        <Link
-                          href={`/transactions/${p.inTxn.id}?returnTo=/transfer-analytics`}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Transfer In
-                        </Link>
-                        <span className="text-muted-foreground/40">·</span>
-                        <button
-                          onClick={() => handleUnlink(p)}
-                          disabled={unlinkingPairId === (p.outTxn.pairId || p.outTxn.id)}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                        >
-                          {unlinkingPairId === (p.outTxn.pairId || p.outTxn.id)
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <Link2Off className="h-3 w-3" />
-                          }
-                          Unlink
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           </>
         )}
 
