@@ -20,6 +20,7 @@ export interface Transaction {
   excludeFromAnalytics?: boolean; // If true, exclude from analytics calculations
   exchangeRate?: number; // Rate used at time of transfer (fromCurrency → toCurrency), stored on Transfer Out txn
   fee?: number; // Transaction fee in the same currency as the transaction
+  pairId?: string; // Links Transfer Out ↔ Transfer In as a pair
   createdAt: Date;
   updatedAt: Date;
 }
@@ -38,6 +39,7 @@ export interface CreateTransactionInput {
   excludeFromAnalytics?: boolean;
   exchangeRate?: number; // Rate used at time of transfer
   fee?: number; // Transaction fee in the same currency
+  pairId?: string; // Links Transfer Out ↔ Transfer In as a pair
 }
 
 export interface UpdateTransactionInput extends Partial<CreateTransactionInput> {
@@ -45,4 +47,5 @@ export interface UpdateTransactionInput extends Partial<CreateTransactionInput> 
   currency?: Currency;
   exchangeRate?: number;
   fee?: number;
+  pairId?: string;
 }

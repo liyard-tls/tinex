@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2, TrendingDown, TrendingUp, ArrowRightLeft, Trophy, AlertCircle, ExternalLink } from 'lucide-react';
+import { Loader2, TrendingDown, TrendingUp, ArrowRightLeft, Trophy, AlertCircle, ExternalLink, Link2, Link2Off, Check } from 'lucide-react';
 import Link from 'next/link';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
@@ -10,6 +10,7 @@ import { useAuth } from '@/app/_providers/AuthProvider';
 import { useAppData } from '@/app/_providers/AppDataProvider';
 import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
 import { Currency, SYSTEM_CATEGORIES, Transaction } from '@/core/models';
+import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { cn } from '@/shared/utils/cn';
 import {
   LineChart,
@@ -87,9 +88,15 @@ function diffColor(value: number) {
 
 export default function TransferAnalyticsPage() {
   const { user, authLoading } = useAuth();
-  const { transactions, categories, userSettings, dataLoading } = useAppData();
+  const { transactions, categories, userSettings, dataLoading, refreshTransactions } = useAppData();
 
   const baseCurrency = (userSettings?.baseCurrency || 'USD') as Currency;
+
+  // ── Refresh transactions on mount (in case data was edited on another page) ──
+  useEffect(() => {
+    refreshTransactions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Identify transfer category IDs ──────────────────────────────────────
   const { transferOutIds, transferInIds } = useMemo(() => {
@@ -112,36 +119,82 @@ export default function TransferAnalyticsPage() {
     [transactions, transferInIds],
   );
 
-  // ── Pair matching: match Transfer Out → Transfer In ──────────────────────
-  // Heuristic: closest Transfer In within 10 minutes of Transfer Out
-  const rawPairs = useMemo((): Array<{ out: Transaction; in: Transaction }> => {
+  // ── Pair matching ────────────────────────────────────────────────────────
+  // Priority 1: match by pairId (exact link, set at creation time)
+  // Priority 2: time heuristic — closest Transfer In within 10 min (legacy/imported)
+  const { rawPairs, unlinkedOuts, unlinkedIns } = useMemo(() => {
+    const usedOutIds = new Set<string>();
     const usedInIds = new Set<string>();
     const pairs: Array<{ out: Transaction; in: Transaction }> = [];
 
-    const sorted = [...transferOuts].sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    for (const outTxn of sorted) {
-      // Find the closest Transfer In near outTxn.date (±10 min)
-      let bestIn: Transaction | null = null;
-      let bestDelta = Infinity;
-
-      for (const inTxn of transferIns) {
-        if (usedInIds.has(inTxn.id)) continue;
-        const delta = Math.abs(inTxn.date.getTime() - outTxn.date.getTime());
-        if (delta < 10 * 60 * 1000 && delta < bestDelta) {
-          bestDelta = delta;
-          bestIn = inTxn;
-        }
+    // Pass 1: match by pairId
+    const pairIdMap = new Map<string, { out?: Transaction; in?: Transaction }>();
+    for (const t of transferOuts) {
+      if (t.pairId) {
+        const entry = pairIdMap.get(t.pairId) || {};
+        entry.out = t;
+        pairIdMap.set(t.pairId, entry);
       }
-
-      if (bestIn) {
-        usedInIds.add(bestIn.id);
-        pairs.push({ out: outTxn, in: bestIn });
+    }
+    for (const t of transferIns) {
+      if (t.pairId) {
+        const entry = pairIdMap.get(t.pairId) || {};
+        entry.in = t;
+        pairIdMap.set(t.pairId, entry);
+      }
+    }
+    for (const { out, in: inTxn } of pairIdMap.values()) {
+      if (out && inTxn) {
+        usedOutIds.add(out.id);
+        usedInIds.add(inTxn.id);
+        pairs.push({ out, in: inTxn });
       }
     }
 
-    return pairs;
+    // Unlinked: transfer txns that have no pairId match
+    const unlinkedOuts = transferOuts.filter((t) => !usedOutIds.has(t.id));
+    const unlinkedIns = transferIns.filter((t) => !usedInIds.has(t.id));
+
+    return { rawPairs: pairs, unlinkedOuts, unlinkedIns };
   }, [transferOuts, transferIns]);
+
+  // ── Manual linking state ─────────────────────────────────────────────────
+  const [linkingOutId, setLinkingOutId] = useState<string | null>(null);
+  const [savingLink, setSavingLink] = useState(false);
+  const [unlinkingPairId, setUnlinkingPairId] = useState<string | null>(null);
+
+  const handleLink = async (outTxn: Transaction, inTxn: Transaction) => {
+    setSavingLink(true);
+    try {
+      const pairId = crypto.randomUUID();
+      await Promise.all([
+        transactionRepository.update({ id: outTxn.id, pairId }),
+        transactionRepository.update({ id: inTxn.id, pairId }),
+      ]);
+      await refreshTransactions();
+    } catch (e) {
+      console.error('Failed to link pair', e);
+    } finally {
+      setSavingLink(false);
+      setLinkingOutId(null);
+    }
+  };
+
+  const handleUnlink = async (p: TransferPair) => {
+    const key = p.outTxn.pairId || p.outTxn.id;
+    setUnlinkingPairId(key);
+    try {
+      await Promise.all([
+        transactionRepository.update({ id: p.outTxn.id, pairId: undefined }),
+        transactionRepository.update({ id: p.inTxn.id, pairId: undefined }),
+      ]);
+      await refreshTransactions();
+    } catch (e) {
+      console.error('Failed to unlink pair', e);
+    } finally {
+      setUnlinkingPairId(null);
+    }
+  };
 
   // ── Convert pairs to base currency and compute stats ────────────────────
   const [pairs, setPairs] = useState<TransferPair[]>([]);
@@ -559,6 +612,18 @@ export default function TransferAnalyticsPage() {
                           <ExternalLink className="h-3 w-3" />
                           Transfer In
                         </Link>
+                        <span className="text-muted-foreground/40">·</span>
+                        <button
+                          onClick={() => handleUnlink(p)}
+                          disabled={unlinkingPairId === (p.outTxn.pairId || p.outTxn.id)}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                        >
+                          {unlinkingPairId === (p.outTxn.pairId || p.outTxn.id)
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <Link2Off className="h-3 w-3" />
+                          }
+                          Unlink
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -567,6 +632,113 @@ export default function TransferAnalyticsPage() {
             </Card>
           </>
         )}
+
+        {/* ── Unlinked Transfers ───────────────────────────────────────── */}
+        {(unlinkedOuts.length > 0 || unlinkedIns.length > 0) && (
+          <Card className="border-amber-500/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-amber-500" />
+                Unlinked Transfers
+                <span className="text-xs font-normal text-muted-foreground">
+                  — no matching pair found
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-border">
+
+                {unlinkedOuts.map((out) => (
+                  <div key={out.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-destructive/80 bg-destructive/10 rounded px-1.5 py-0.5">Out</span>
+                        <span className="text-xs text-muted-foreground">
+                          {out.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/transactions/${out.id}?returnTo=/transfer-analytics`}
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </div>
+                    <p className="text-sm font-medium">{out.amount.toLocaleString()} {out.currency}</p>
+                    <p className="text-xs text-muted-foreground mb-2">{out.description}</p>
+
+                    {/* Link to a Transfer In */}
+                    {linkingOutId === out.id ? (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Select matching Transfer In:</p>
+                        {unlinkedIns.length === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">No unlinked Transfer In transactions</p>
+                        ) : (
+                          unlinkedIns.map((inTxn) => (
+                            <button
+                              key={inTxn.id}
+                              disabled={savingLink}
+                              onClick={() => handleLink(out, inTxn)}
+                              className="w-full flex items-center justify-between px-3 py-2 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors text-left"
+                            >
+                              <div>
+                                <p className="text-xs font-medium">{inTxn.amount.toLocaleString()} {inTxn.currency}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {inTxn.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} · {inTxn.description}
+                                </p>
+                              </div>
+                              {savingLink
+                                ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                : <Check className="h-3 w-3 text-success" />
+                              }
+                            </button>
+                          ))
+                        )}
+                        <button
+                          onClick={() => setLinkingOutId(null)}
+                          className="text-xs text-muted-foreground hover:text-foreground mt-1"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setLinkingOutId(out.id)}
+                        className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 transition-colors"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        Link to Transfer In
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {unlinkedIns.map((inTxn) => (
+                  <div key={inTxn.id} className="px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-success/80 bg-success/10 rounded px-1.5 py-0.5">In</span>
+                        <span className="text-xs text-muted-foreground">
+                          {inTxn.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium">{inTxn.amount.toLocaleString()} {inTxn.currency}</p>
+                      <p className="text-xs text-muted-foreground">{inTxn.description}</p>
+                    </div>
+                    <Link
+                      href={`/transactions/${inTxn.id}?returnTo=/transfer-analytics`}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors ml-4"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+                ))}
+
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
       </main>
 
       <BottomNav />

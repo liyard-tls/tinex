@@ -11,6 +11,7 @@ import {
   limit,
   Timestamp,
   QueryConstraint,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Transaction, CreateTransactionInput, UpdateTransactionInput } from '@/core/models';
@@ -46,6 +47,7 @@ export class TransactionRepository {
     if (input.excludeFromAnalytics !== undefined) transaction.excludeFromAnalytics = input.excludeFromAnalytics;
     if (input.exchangeRate !== undefined) transaction.exchangeRate = input.exchangeRate;
     if (input.fee !== undefined) transaction.fee = input.fee;
+    if (input.pairId !== undefined) transaction.pairId = input.pairId;
 
     const docRef = await addDoc(collection(db, this.collectionName), transaction);
 
@@ -203,13 +205,24 @@ export class TransactionRepository {
 
     const docRef = doc(db, this.collectionName, id);
 
-    const updates: any = {
-      ...updateData,
-      updatedAt: Timestamp.fromDate(new Date()),
-    };
+    // Strip undefined values — Firestore rejects them
+    const updates: any = { updatedAt: Timestamp.fromDate(new Date()) };
+    for (const [k, v] of Object.entries(updateData)) {
+      if (v !== undefined) updates[k] = v;
+    }
 
     if (updateData.date) {
       updates.date = Timestamp.fromDate(updateData.date);
+    }
+
+    // Explicitly clear pairId field in Firestore when set to undefined
+    if ('pairId' in input && input.pairId === undefined) {
+      updates.pairId = deleteField();
+    }
+
+    // Explicitly clear fee field in Firestore when set to undefined
+    if ('fee' in input && input.fee === undefined) {
+      updates.fee = deleteField();
     }
 
     await updateDoc(docRef, updates);
@@ -332,6 +345,7 @@ export class TransactionRepository {
       excludeFromAnalytics: data.excludeFromAnalytics,
       exchangeRate: data.exchangeRate,
       fee: data.fee,
+      pairId: data.pairId,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };

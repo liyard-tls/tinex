@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight } from "lucide-react";
+import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight, ArrowRightLeft } from "lucide-react";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import BottomNav from "@/shared/components/layout/BottomNav";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
+import AddTransferForm from "@/modules/transactions/AddTransferForm";
 import TransactionListItem from "@/shared/components/ui/TransactionListItem";
 import WhatsNewPopup from "@/shared/components/ui/WhatsNewPopup";
 import { useAuth } from "@/app/_providers/AuthProvider";
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const { user, authLoading, signOut } = useAuth();
   const { transactions, accounts, categories, tags, userSettings, dataLoading, refreshTransactions } = useAppData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showAddTransfer, setShowAddTransfer] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [stats, setStats] = useState({
     income: 0,
@@ -459,6 +461,18 @@ export default function DashboardPage() {
             </Button>
             <Button
               size="lg"
+              variant="outline"
+              onClick={() => {
+                setShowAddTransfer(true);
+                setShowQuickActions(false);
+              }}
+              className="gap-2 shadow-xl shadow-black/30"
+            >
+              <ArrowRightLeft className="h-5 w-5" />
+              Add Transfer
+            </Button>
+            <Button
+              size="lg"
               variant="secondary"
               onClick={() => router.push("/import")}
               className="gap-2 shadow-xl shadow-black/30"
@@ -479,6 +493,23 @@ export default function DashboardPage() {
           <AddTransactionForm
             onSubmit={handleAddTransaction}
             onCancel={() => setShowAddTransaction(false)}
+            accounts={allAccounts}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Transfer Dialog */}
+      <Dialog open={showAddTransfer} onOpenChange={setShowAddTransfer}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Transfer</DialogTitle>
+          </DialogHeader>
+          <AddTransferForm
+            onSuccess={async () => {
+              await refreshTransactions();
+              setShowAddTransfer(false);
+            }}
+            onCancel={() => setShowAddTransfer(false)}
             accounts={allAccounts}
           />
         </DialogContent>
