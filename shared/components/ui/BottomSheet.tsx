@@ -60,12 +60,18 @@ export default function BottomSheet({
     return () => document.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
-  // Lock body scroll
+  // Lock body scroll + signal swipe navigation to pause
   useEffect(() => {
-    if (open) document.body.style.overflow = "hidden";
-    else document.body.style.overflow = "";
+    if (open) {
+      document.body.style.overflow = "hidden";
+      document.documentElement.setAttribute('data-sheet-open', '');
+    } else {
+      document.body.style.overflow = "";
+      document.documentElement.removeAttribute('data-sheet-open');
+    }
     return () => {
       document.body.style.overflow = "";
+      document.documentElement.removeAttribute('data-sheet-open');
     };
   }, [open]);
 

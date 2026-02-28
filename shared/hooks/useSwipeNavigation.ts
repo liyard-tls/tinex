@@ -17,10 +17,28 @@ export function useSwipeNavigation() {
   useEffect(() => {
     const currentIndex = NAV_ROUTES.findIndex((r) => pathname.startsWith(r));
 
+    const isInsideHorizontalScroller = (target: EventTarget | null): boolean => {
+      let el = target as HTMLElement | null;
+      while (el && el !== document.body) {
+        const style = window.getComputedStyle(el);
+        const overflowX = style.overflowX;
+        if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollWidth > el.clientWidth) {
+          return true;
+        }
+        el = el.parentElement;
+      }
+      return false;
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       const touch = e.touches[0];
       // Ignore touches starting near screen edges (browser back/forward gesture zones)
       if (touch.clientX < EDGE_ZONE || touch.clientX > window.innerWidth - EDGE_ZONE) {
+        touchStart.current = null;
+        return;
+      }
+      // Ignore touches inside horizontal scroll containers (account/category galleries)
+      if (isInsideHorizontalScroller(e.target)) {
         touchStart.current = null;
         return;
       }
@@ -38,6 +56,8 @@ export function useSwipeNavigation() {
       if (Math.abs(dx) < MIN_SWIPE_X || dy > MAX_SWIPE_Y) return;
       // Not on a main nav page
       if (currentIndex === -1) return;
+      // Bottom sheet or modal is open — block navigation
+      if (document.documentElement.hasAttribute('data-sheet-open')) return;
 
       const navigate = (direction: 'left' | 'right', target: string) => {
         window.scrollTo({ top: 0, behavior: 'instant' });
