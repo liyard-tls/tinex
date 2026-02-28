@@ -7,8 +7,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import BottomSheet from "@/shared/components/ui/BottomSheet";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import FAB from "@/shared/components/ui/FAB";
 import AddTransactionForm from "@/modules/transactions/AddTransactionForm";
@@ -437,17 +437,21 @@ export default function DashboardPage() {
 
       {/* Floating Action Button */}
       <FAB className="bottom-24 right-4" onClick={() => setShowQuickActions(!showQuickActions)}>
-        <Plus className="h-6 w-6" />
+        <Plus
+          className="h-6 w-6 transition-transform duration-300"
+          style={{ transform: showQuickActions ? 'rotate(45deg)' : 'rotate(0deg)' }}
+        />
       </FAB>
 
       {/* Quick Actions Menu */}
       {showQuickActions && (
         <>
           <div
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+            style={{ animation: 'fade-in 0.2s ease-out both' }}
             onClick={() => setShowQuickActions(false)}
           />
-          <div className="fixed bottom-40 right-4 z-50 flex flex-col gap-2">
+          <div className="fixed bottom-40 right-4 z-50 flex flex-col gap-2 items-end">
             <Button
               size="lg"
               onClick={() => {
@@ -455,6 +459,7 @@ export default function DashboardPage() {
                 setShowQuickActions(false);
               }}
               className="gap-2 shadow-xl shadow-primary/20"
+              style={{ animation: 'action-pop 0.2s ease-out 0.05s both' }}
             >
               <Plus className="h-5 w-5" />
               Add Transaction
@@ -467,6 +472,7 @@ export default function DashboardPage() {
                 setShowQuickActions(false);
               }}
               className="gap-2 shadow-xl shadow-black/30"
+              style={{ animation: 'action-pop 0.2s ease-out 0.1s both' }}
             >
               <ArrowRightLeft className="h-5 w-5" />
               Add Transfer
@@ -476,6 +482,7 @@ export default function DashboardPage() {
               variant="secondary"
               onClick={() => router.push("/import")}
               className="gap-2 shadow-xl shadow-black/30"
+              style={{ animation: 'action-pop 0.2s ease-out 0.15s both' }}
             >
               <Upload className="h-5 w-5" />
               Import Statement
@@ -484,36 +491,34 @@ export default function DashboardPage() {
         </>
       )}
 
-      {/* Add Transaction Dialog */}
-      <Dialog open={showAddTransaction} onOpenChange={setShowAddTransaction}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Transaction</DialogTitle>
-          </DialogHeader>
-          <AddTransactionForm
-            onSubmit={handleAddTransaction}
-            onCancel={() => setShowAddTransaction(false)}
-            accounts={allAccounts}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Transaction Bottom Sheet */}
+      <BottomSheet
+        open={showAddTransaction}
+        onClose={() => setShowAddTransaction(false)}
+        title="Add Transaction"
+      >
+        <AddTransactionForm
+          onSubmit={handleAddTransaction}
+          onCancel={() => setShowAddTransaction(false)}
+          accounts={allAccounts}
+        />
+      </BottomSheet>
 
-      {/* Add Transfer Dialog */}
-      <Dialog open={showAddTransfer} onOpenChange={setShowAddTransfer}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Transfer</DialogTitle>
-          </DialogHeader>
-          <AddTransferForm
-            onSuccess={async () => {
-              await refreshTransactions();
-              setShowAddTransfer(false);
-            }}
-            onCancel={() => setShowAddTransfer(false)}
-            accounts={allAccounts}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Add Transfer Bottom Sheet */}
+      <BottomSheet
+        open={showAddTransfer}
+        onClose={() => setShowAddTransfer(false)}
+        title="Add Transfer"
+      >
+        <AddTransferForm
+          onSuccess={async () => {
+            await refreshTransactions();
+            setShowAddTransfer(false);
+          }}
+          onCancel={() => setShowAddTransfer(false)}
+          accounts={allAccounts}
+        />
+      </BottomSheet>
 
       <BottomNav />
 
