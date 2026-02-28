@@ -55,6 +55,7 @@ export default function TransactionDetailPage() {
     merchantName: "",
     notes: "",
     excludeFromAnalytics: false,
+    fee: "",
   });
 
   useEffect(() => {
@@ -98,6 +99,7 @@ export default function TransactionDetailPage() {
         merchantName: txn.merchantName || "",
         notes: txn.notes || "",
         excludeFromAnalytics: txn.excludeFromAnalytics || false,
+        fee: txn.fee !== undefined ? txn.fee.toString() : "",
       });
     } catch (error) {
       console.error("Failed to load transaction:", error);
@@ -155,6 +157,7 @@ export default function TransactionDetailPage() {
           tags: selectedTags,
           excludeFromAnalytics: formData.excludeFromAnalytics,
           ...(exchangeRate !== undefined && { exchangeRate }),
+          fee: formData.fee !== "" ? parseFloat(formData.fee) : undefined,
         });
 
         // Cache exchangeRate locally so we don't re-fetch on subsequent saves
@@ -395,6 +398,24 @@ export default function TransactionDetailPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, amount: e.target.value })
                     }
+                    className="w-32 h-8 text-sm text-right"
+                  />
+                </div>
+              </div>
+
+              <div className="h-px bg-border" />
+
+              {/* Fee */}
+              <div className="flex items-center">
+                <span className="text-sm text-muted-foreground">Fee</span>
+                <div className="ml-auto">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.fee}
+                    onChange={(e) => setFormData({ ...formData, fee: e.target.value })}
+                    placeholder="0"
                     className="w-32 h-8 text-sm text-right"
                   />
                 </div>

@@ -34,7 +34,8 @@ interface TransferPair {
   // Converted to base currency
   sentBase: number;
   receivedBase: number;
-  diff: number;           // receivedBase - sentBase  (negative = loss)
+  feeBase: number;        // fee in base currency (0 if no fee)
+  diff: number;           // receivedBase - sentBase - feeBase  (negative = loss)
   diffPct: number;        // diff / sentBase * 100
   actualRate: number;     // receivedAmount / sentAmount  (same currencies = 0)
   marketRate: number;     // market rate between the two currencies at the time
@@ -170,7 +171,15 @@ export default function TransferAnalyticsPage() {
           inTxn.exchangeRate !== undefined
             ? inTxn.amount * inTxn.exchangeRate
             : await convertCurrency(inTxn.amount, inTxn.currency, baseCurrency);
-        const diff = receivedBase - sentBase;
+
+        // Include fees in the loss calculation (fee is in outCurrency)
+        const feeBase = out.fee
+          ? out.exchangeRate !== undefined
+            ? out.fee * out.exchangeRate
+            : await convertCurrency(out.fee, out.currency, baseCurrency)
+          : 0;
+
+        const diff = receivedBase - sentBase - feeBase;
         const diffPct = sentBase !== 0 ? (diff / sentBase) * 100 : 0;
 
         // Actual rate (only meaningful if currencies differ)
@@ -198,6 +207,7 @@ export default function TransferAnalyticsPage() {
           receivedCurrency: inTxn.currency,
           sentBase,
           receivedBase,
+          feeBase,
           diff,
           diffPct,
           actualRate,
@@ -526,6 +536,11 @@ export default function TransferAnalyticsPage() {
                       {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && (
                         <p className="text-xs text-muted-foreground mt-0.5">
                           Rate: {p.actualRate.toFixed(4)}{p.marketRate > 0 ? ` (market: ${p.marketRate.toFixed(4)})` : ' · no market rate'}
+                        </p>
+                      )}
+                      {p.outTxn.fee !== undefined && p.outTxn.fee > 0 && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Fee: {p.outTxn.fee.toLocaleString()} {p.sentCurrency}
                         </p>
                       )}
                       <div className="flex items-center gap-2 mt-2">

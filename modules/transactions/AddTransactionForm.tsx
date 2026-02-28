@@ -145,6 +145,7 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
           amount: Math.abs(Number(data.amount)),
           date: dateTime,
           tags: selectedTags,
+          fee: data.fee ? Math.abs(Number(data.fee)) : undefined,
         },
         selectedCurrency
       );
@@ -426,6 +427,22 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts }: Add
           type="text"
           placeholder="e.g., Walmart"
           {...register('merchantName')}
+          disabled={loading}
+        />
+      </div>
+
+      {/* Fee (optional) */}
+      <div>
+        <label className="text-xs font-medium mb-1.5 block">Fee (Optional)</label>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder={`0.00 (${currencySymbol})`}
+          {...register('fee', {
+            min: { value: 0, message: 'Fee must be 0 or greater' },
+          })}
+          error={errors.fee?.message}
           disabled={loading}
         />
       </div>

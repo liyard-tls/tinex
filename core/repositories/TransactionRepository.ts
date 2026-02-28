@@ -45,6 +45,7 @@ export class TransactionRepository {
     if (input.notes) transaction.notes = input.notes;
     if (input.excludeFromAnalytics !== undefined) transaction.excludeFromAnalytics = input.excludeFromAnalytics;
     if (input.exchangeRate !== undefined) transaction.exchangeRate = input.exchangeRate;
+    if (input.fee !== undefined) transaction.fee = input.fee;
 
     const docRef = await addDoc(collection(db, this.collectionName), transaction);
 
@@ -330,6 +331,7 @@ export class TransactionRepository {
       notes: data.notes,
       excludeFromAnalytics: data.excludeFromAnalytics,
       exchangeRate: data.exchangeRate,
+      fee: data.fee,
       createdAt: data.createdAt?.toDate() || new Date(),
       updatedAt: data.updatedAt?.toDate() || new Date(),
     };

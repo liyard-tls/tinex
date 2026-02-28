@@ -19,6 +19,7 @@ export interface Transaction {
   notes?: string;
   excludeFromAnalytics?: boolean; // If true, exclude from analytics calculations
   exchangeRate?: number; // Rate used at time of transfer (fromCurrency → toCurrency), stored on Transfer Out txn
+  fee?: number; // Transaction fee in the same currency as the transaction
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,10 +37,12 @@ export interface CreateTransactionInput {
   notes?: string;
   excludeFromAnalytics?: boolean;
   exchangeRate?: number; // Rate used at time of transfer
+  fee?: number; // Transaction fee in the same currency
 }
 
 export interface UpdateTransactionInput extends Partial<CreateTransactionInput> {
   id: string;
   currency?: Currency;
   exchangeRate?: number;
+  fee?: number;
 }
