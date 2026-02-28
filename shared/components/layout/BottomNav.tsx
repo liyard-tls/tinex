@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Wallet, PieChart, BarChart3, Menu } from 'lucide-react';
@@ -19,36 +19,40 @@ export default function BottomNav() {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
 
-  // Refs to each nav item for measuring position
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const navRef = useRef<HTMLDivElement>(null);
-
-  // Glow position in px (left offset + width relative to nav container)
-  const [glowStyle, setGlowStyle] = useState<{ left: number; width: number } | null>(null);
-  // Track if first render (skip transition on initial paint)
-  const isFirstRender = useRef(true);
+  const glowRef = useRef<HTMLSpanElement>(null);
+  const initialized = useRef(false);
 
   const currentIndex = navItems.findIndex((item) => pathname.startsWith(item.href));
 
-  // Measure active item and update glow position
-  useLayoutEffect(() => {
-    if (currentIndex === -1) {
-      setGlowStyle(null);
-      return;
-    }
+  // Move glow to the active item's position
+  useEffect(() => {
+    if (currentIndex === -1) return;
     const el = itemRefs.current[currentIndex];
     const nav = navRef.current;
-    if (!el || !nav) return;
+    const glow = glowRef.current;
+    if (!el || !nav || !glow) return;
 
     const elRect = el.getBoundingClientRect();
     const navRect = nav.getBoundingClientRect();
-    setGlowStyle({
-      left: elRect.left - navRect.left,
-      width: elRect.width,
-    });
+    const newLeft = elRect.left - navRect.left;
+    const newWidth = elRect.width;
 
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
+    if (!initialized.current) {
+      // First paint: set position instantly, no transition
+      glow.style.transition = 'none';
+      glow.style.left = `${newLeft}px`;
+      glow.style.width = `${newWidth}px`;
+      glow.style.opacity = '1';
+      // Force reflow so next change gets transition
+      void glow.offsetWidth;
+      glow.style.transition = 'left 0.32s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      initialized.current = true;
+    } else {
+      // Subsequent navigations: animate
+      glow.style.left = `${newLeft}px`;
+      glow.style.width = `${newWidth}px`;
     }
   }, [currentIndex]);
 
@@ -73,18 +77,14 @@ export default function BottomNav() {
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/75 backdrop-blur-md border-t border-white/[0.07] safe-area-bottom">
         <div ref={navRef} className="relative flex items-center justify-around h-16 max-w-lg mx-auto px-2">
 
-          {/* Sliding glow — pixel-accurate, transitions on position change */}
-          {glowStyle && (
-            <span
-              className="absolute bottom-0 h-full pointer-events-none"
-              style={{
-                left: glowStyle.left,
-                width: glowStyle.width,
-                transition: isFirstRender.current ? 'none' : 'left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                background: 'radial-gradient(ellipse 80% 60% at 50% 100%, hsl(var(--primary) / 0.22) 0%, hsl(var(--primary) / 0.07) 60%, transparent 100%)',
-              }}
-            />
-          )}
+          {/* Sliding glow — imperative position via ref, avoids React re-render lag */}
+          <span
+            ref={glowRef}
+            className="absolute bottom-0 h-full pointer-events-none opacity-0"
+            style={{
+              background: 'radial-gradient(ellipse 80% 60% at 50% 100%, hsl(var(--primary) / 0.22) 0%, hsl(var(--primary) / 0.07) 60%, transparent 100%)',
+            }}
+          />
 
           {navItems.map((item, index) => {
             const Icon = item.icon;
