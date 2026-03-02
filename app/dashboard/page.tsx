@@ -58,6 +58,8 @@ export default function DashboardPage() {
   const [allAccounts, setAllAccounts] = useState(accounts);
   const [totalBalance, setTotalBalance] = useState<number>(0);
   const [availableBalance, setAvailableBalance] = useState<number>(0); // excludes future txns, confirmed wishlists, saving accounts
+  const [upcomingIncome, setUpcomingIncome] = useState<number>(0);
+  const [upcomingSpent, setUpcomingSpent] = useState<number>(0);
   const router = useRouter();
 
   const calculateDashboardData = useCallback(async () => {
@@ -125,23 +127,40 @@ export default function DashboardPage() {
         );
       }
 
-      // Scheduled transactions due this month — not yet baked into accountsBalance,
-      // but planned to happen → reduce/increase available balance
+      // Scheduled transactions due this month — not yet baked into accountsBalance
       const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       const thisMonthScheduled = scheduledTransactions.filter(
         (s) => s.nextDate >= now && s.nextDate <= monthEnd
       );
-      let scheduledImpact = 0;
+      let scheduledExpenseImpact = 0;
+      let scheduledIncomeUpcoming = 0;
+      let scheduledExpenseUpcoming = 0;
       for (const s of thisMonthScheduled) {
         const convertedAmount = await convertCurrency(s.amount, s.currency, baseCurrency);
-        if (s.type === "income") scheduledImpact += convertedAmount;
-        else if (s.type === "expense") scheduledImpact -= convertedAmount;
+        if (s.type === "expense") {
+          scheduledExpenseImpact += convertedAmount;
+          scheduledExpenseUpcoming += convertedAmount;
+        } else if (s.type === "income") {
+          scheduledIncomeUpcoming += convertedAmount;
+        }
       }
 
-      // totalBalance = current real state (undo future txns impact, no reserved funds)
-      // availableBalance = includes future txns + this month's scheduled, minus reserved funds
+      // Upcoming income/spent: future regular txns + this month scheduled + confirmed wishlist (spent)
+      let futureIncomeUpcoming = 0;
+      let futureExpenseUpcoming = 0;
+      for (const txn of futureTxns) {
+        const convertedAmount = await convertCurrency(txn.amount, txn.currency, baseCurrency);
+        if (txn.type === "income") futureIncomeUpcoming += convertedAmount;
+        else if (txn.type === "expense") futureExpenseUpcoming += convertedAmount;
+      }
+      setUpcomingIncome(futureIncomeUpcoming + scheduledIncomeUpcoming);
+      setUpcomingSpent(futureExpenseUpcoming + scheduledExpenseUpcoming + confirmedWishlistTotal);
+
+      // totalBalance = current real state (undo future txns impact)
+      // availableBalance = minus upcoming expenses (scheduled this month) and reserved funds
+      // income scheduled is intentionally excluded — don't show money not yet received
       setTotalBalance(accountsBalance - futureImpact);
-      setAvailableBalance(accountsBalance - confirmedWishlistTotal - savingAccountsTotal + scheduledImpact);
+      setAvailableBalance(accountsBalance - confirmedWishlistTotal - savingAccountsTotal - scheduledExpenseImpact);
 
       // Month stats
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -172,7 +191,7 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Failed to calculate dashboard data:", error);
     }
-  }, [user, accounts, transactions, categories, userSettings]);
+  }, [user, accounts, transactions, categories, userSettings, scheduledTransactions]);
 
   useEffect(() => {
     calculateDashboardData();
@@ -297,37 +316,29 @@ export default function DashboardPage() {
             </p>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="grid grid-cols-3 gap-3 pt-1">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <div className="w-6 h-6 rounded-md bg-white/[0.06] flex items-center justify-center">
-                    <Wallet className="h-3 w-3" />
-                  </div>
-                  <span className="text-xs">Accounts</span>
+            <div className="flex gap-3 pt-1">
+              {/* Income block */}
+              <div className="flex-1 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-success/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="h-3.5 w-3.5 text-success" />
                 </div>
-                <span className="text-base font-semibold pl-0.5">{allAccounts.length}</span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Income</p>
+                  <p className="text-sm font-semibold text-success leading-tight">{formatCurrency(stats.income, baseCurrency)}</p>
+                  <p className="text-xs text-success/50 leading-tight">{formatCurrency(upcomingIncome, baseCurrency)}</p>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-md bg-success/10 flex items-center justify-center">
-                    <TrendingUp className="h-3 w-3 text-success" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Income</span>
+              <div className="w-px bg-white/[0.06] self-stretch" />
+              {/* Spent block */}
+              <div className="flex-1 flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingDown className="h-3.5 w-3.5 text-destructive" />
                 </div>
-                <span className="text-base font-semibold pl-0.5 text-success">
-                  {formatCurrency(stats.income, baseCurrency)}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-6 h-6 rounded-md bg-destructive/10 flex items-center justify-center">
-                    <TrendingDown className="h-3 w-3 text-destructive" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">Spent</span>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Spent</p>
+                  <p className="text-sm font-semibold text-destructive leading-tight">{formatCurrency(stats.expenses, baseCurrency)}</p>
+                  <p className="text-xs text-destructive/50 leading-tight">{formatCurrency(upcomingSpent, baseCurrency)}</p>
                 </div>
-                <span className="text-base font-semibold pl-0.5 text-destructive">
-                  {formatCurrency(stats.expenses, baseCurrency)}
-                </span>
               </div>
             </div>
           </CardContent>
