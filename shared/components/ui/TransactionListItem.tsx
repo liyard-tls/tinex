@@ -8,7 +8,7 @@
 import { useRouter } from "next/navigation";
 import { Transaction, Category, Tag } from "@/core/models";
 import { CATEGORY_ICONS } from "@/shared/config/icons";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Clock } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 import { CURRENCIES } from "@/core/models";
 
@@ -42,6 +42,11 @@ export default function TransactionListItem({
       MoreHorizontal
     : MoreHorizontal;
 
+  const txnDate = transaction.date instanceof Date
+    ? transaction.date
+    : (transaction.date as { toDate: () => Date }).toDate();
+  const isFuture = txnDate > new Date();
+
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       onClick(e);
@@ -65,7 +70,10 @@ export default function TransactionListItem({
   return (
     <div
       onClick={handleClick}
-      className="flex items-center gap-3 p-3 relative overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer"
+      className={cn(
+        "flex items-center gap-3 p-3 relative overflow-hidden hover:bg-muted/30 transition-colors cursor-pointer",
+        isFuture && "opacity-60"
+      )}
     >
       {/* Side gradient bar */}
       {category && (
@@ -102,8 +110,9 @@ export default function TransactionListItem({
           {transaction.description}
         </p>
         <div className="flex items-center gap-2 mt-1">
+          {isFuture && <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
           <p className="text-xs text-muted-foreground">
-            {new Date(transaction.date).toLocaleTimeString("en-US", {
+            {txnDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
               hour12: false,

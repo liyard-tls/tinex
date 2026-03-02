@@ -9,7 +9,8 @@ import { accountRepository } from '@/core/repositories/AccountRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
-import { Transaction, Account, Category, Tag, UserSettings } from '@/core/models';
+import { scheduledTransactionRepository } from '@/core/repositories/ScheduledTransactionRepository';
+import { Transaction, Account, Category, Tag, UserSettings, ScheduledTransaction } from '@/core/models';
 
 interface AppDataContextValue {
   transactions: Transaction[];
@@ -17,6 +18,7 @@ interface AppDataContextValue {
   categories: Category[];
   tags: Tag[];
   userSettings: UserSettings | null;
+  scheduledTransactions: ScheduledTransaction[];
   dataLoading: boolean;
   refresh: () => Promise<void>;
   refreshTransactions: () => Promise<void>;
@@ -24,6 +26,7 @@ interface AppDataContextValue {
   refreshCategories: () => Promise<void>;
   refreshTags: () => Promise<void>;
   refreshUserSettings: () => Promise<void>;
+  refreshScheduledTransactions: () => Promise<void>;
 }
 
 const AppDataContext = createContext<AppDataContextValue>(null!);
@@ -75,8 +78,15 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     staleTime: 10 * 60 * 1000,
   });
 
+  const { data: scheduledTransactions = [], isLoading: schedLoading } = useQuery({
+    queryKey: QUERY_KEYS.scheduledTransactions(uid ?? ''),
+    queryFn: () => scheduledTransactionRepository.getByUserId(uid!),
+    enabled: !!uid,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // True only on first load (no cached data yet); false instantly when cache is warm
-  const dataLoading = !!uid && (txLoading || accLoading || catLoading || tagLoading || settingsLoading);
+  const dataLoading = !!uid && (txLoading || accLoading || catLoading || tagLoading || settingsLoading || schedLoading);
 
   const refreshTransactions = useCallback(async () => {
     if (!uid) return;
@@ -106,6 +116,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.userSettings(uid) });
   }, [queryClient, uid]);
 
+  const refreshScheduledTransactions = useCallback(async () => {
+    if (!uid) return;
+    await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.scheduledTransactions(uid), refetchType: 'all' });
+  }, [queryClient, uid]);
+
   const refresh = useCallback(async () => {
     if (!uid) return;
     await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.all(uid) });
@@ -119,6 +134,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         categories,
         tags,
         userSettings,
+        scheduledTransactions,
         dataLoading,
         refresh,
         refreshTransactions,
@@ -126,6 +142,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
         refreshCategories,
         refreshTags,
         refreshUserSettings,
+        refreshScheduledTransactions,
       }}
     >
       {children}

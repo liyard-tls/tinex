@@ -20,6 +20,7 @@ import {
   Sparkles,
   FileText,
   Banknote,
+  CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { AIChatSidebar } from '@/modules/ai-chat';
@@ -37,6 +38,7 @@ const mainMenuItems = [
   { href: '/analytics', icon: BarChart3, label: 'Analytics' },
   { href: '/transfer-analytics', icon: Banknote, label: 'Transfer Analytics' },
   { href: '/transactions', icon: ArrowLeftRight, label: 'Transactions' },
+  { href: '/scheduled', icon: CalendarClock, label: 'Scheduled' },
   { href: '/import', icon: Upload, label: 'Import' },
 ];
 

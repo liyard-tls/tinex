@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight, ArrowRightLeft } from "lucide-react";
+import UpcomingTransactionsWidget from "@/modules/transactions/UpcomingTransactionsWidget";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -25,7 +26,9 @@ import {
   WishlistItem,
   SYSTEM_CATEGORIES,
   CURRENCIES,
+  ScheduledTransaction,
 } from "@/core/models";
+import { scheduledTransactionRepository, advanceNextDate } from "@/core/repositories/ScheduledTransactionRepository";
 import {
   convertMultipleCurrencies,
   convertCurrency,
@@ -40,7 +43,7 @@ const getCurrencySymbol = (currency: string) => {
 
 export default function DashboardPage() {
   const { user, authLoading, signOut } = useAuth();
-  const { transactions, accounts, categories, tags, userSettings, dataLoading, refreshTransactions } = useAppData();
+  const { transactions, accounts, categories, tags, userSettings, scheduledTransactions, dataLoading, refreshTransactions, refreshAccounts, refreshScheduledTransactions } = useAppData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [addTransactionLoading, setAddTransactionLoading] = useState(false);
   const [showAddTransfer, setShowAddTransfer] = useState(false);
@@ -54,7 +57,7 @@ export default function DashboardPage() {
   });
   const [allAccounts, setAllAccounts] = useState(accounts);
   const [totalBalance, setTotalBalance] = useState<number>(0);
-  const [balanceWithFuture, setBalanceWithFuture] = useState<number>(0);
+  const [availableBalance, setAvailableBalance] = useState<number>(0); // excludes future txns, confirmed wishlists, saving accounts
   const router = useRouter();
 
   const calculateDashboardData = useCallback(async () => {
@@ -88,19 +91,18 @@ export default function DashboardPage() {
         );
       }
 
-      // Future transactions
+      // Future transactions — their impact is already baked into accountsBalance
+      // (account balance updates immediately on create regardless of date)
       const now = new Date();
       const futureTxns = transactions.filter((txn) => {
-        const txnDate =
-          txn.date instanceof Date ? txn.date : (txn.date as { toDate: () => Date }).toDate();
+        const txnDate = txn.date instanceof Date ? txn.date : (txn.date as { toDate: () => Date }).toDate();
         return txnDate > now;
       });
-
-      let futureAmount = 0;
+      let futureImpact = 0;
       for (const txn of futureTxns) {
         const convertedAmount = await convertCurrency(txn.amount, txn.currency, baseCurrency);
-        if (txn.type === "income") futureAmount += convertedAmount;
-        else if (txn.type === "expense") futureAmount -= convertedAmount;
+        if (txn.type === "income") futureImpact += convertedAmount;
+        else if (txn.type === "expense") futureImpact -= convertedAmount;
       }
 
       // Wishlist confirmed items (still fetched locally — not in context)
@@ -123,8 +125,23 @@ export default function DashboardPage() {
         );
       }
 
-      setTotalBalance(accountsBalance);
-      setBalanceWithFuture(accountsBalance - futureAmount - confirmedWishlistTotal - savingAccountsTotal);
+      // Scheduled transactions due this month — not yet baked into accountsBalance,
+      // but planned to happen → reduce/increase available balance
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      const thisMonthScheduled = scheduledTransactions.filter(
+        (s) => s.nextDate >= now && s.nextDate <= monthEnd
+      );
+      let scheduledImpact = 0;
+      for (const s of thisMonthScheduled) {
+        const convertedAmount = await convertCurrency(s.amount, s.currency, baseCurrency);
+        if (s.type === "income") scheduledImpact += convertedAmount;
+        else if (s.type === "expense") scheduledImpact -= convertedAmount;
+      }
+
+      // totalBalance = current real state (undo future txns impact, no reserved funds)
+      // availableBalance = includes future txns + this month's scheduled, minus reserved funds
+      setTotalBalance(accountsBalance - futureImpact);
+      setAvailableBalance(accountsBalance - confirmedWishlistTotal - savingAccountsTotal + scheduledImpact);
 
       // Month stats
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -177,6 +194,36 @@ export default function DashboardPage() {
     }
   };
 
+  const handleExecuteScheduled = useCallback(async (s: ScheduledTransaction) => {
+    if (!user) return;
+    try {
+      await transactionRepository.create(
+        user.uid,
+        {
+          accountId: s.accountId,
+          type: s.type,
+          amount: s.amount,
+          description: s.description,
+          categoryId: s.categoryId,
+          date: new Date(),
+          tags: s.tags,
+          fee: s.fee,
+        },
+        s.currency,
+      );
+      if (s.recurrence === 'once') {
+        await scheduledTransactionRepository.update({ id: s.id, isActive: false, lastExecutedAt: new Date() });
+      } else {
+        const nextDate = advanceNextDate(s.nextDate, s.recurrence);
+        const expired = s.endDate ? nextDate > s.endDate : false;
+        await scheduledTransactionRepository.update({ id: s.id, nextDate, isActive: !expired, lastExecutedAt: new Date() });
+      }
+      await Promise.all([refreshTransactions(), refreshAccounts(), refreshScheduledTransactions()]);
+    } catch (e) {
+      console.error('Failed to execute scheduled transaction', e);
+    }
+  }, [user, refreshTransactions, refreshAccounts, refreshScheduledTransactions]);
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -194,7 +241,7 @@ export default function DashboardPage() {
 
   if (!user) return null;
 
-  const isPositive = balanceWithFuture >= 0;
+  const isPositive = availableBalance >= 0;
   const baseCurrency = userSettings?.baseCurrency || "USD";
 
   return (
@@ -231,7 +278,7 @@ export default function DashboardPage() {
           <CardHeader className="pb-2 relative z-10">
             <div className="flex items-center justify-between">
               <CardDescription className="text-xs font-medium uppercase tracking-widest text-muted-foreground/70">
-                Total Balance
+                Available Balance
               </CardDescription>
               <Badge variant="secondary" className="text-xs bg-white/[0.06] border-white/[0.08] text-muted-foreground">
                 {baseCurrency}
@@ -243,13 +290,11 @@ export default function DashboardPage() {
                 !isPositive && "text-destructive"
               )}
             >
-              {formatCurrency(balanceWithFuture, baseCurrency)}
+              {formatCurrency(availableBalance, baseCurrency)}
             </CardTitle>
-            {balanceWithFuture !== totalBalance && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Current: {formatCurrency(totalBalance, baseCurrency)}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground mt-1">
+              Total balance: {formatCurrency(totalBalance, baseCurrency)}
+            </p>
           </CardHeader>
           <CardContent className="relative z-10">
             <div className="grid grid-cols-3 gap-3 pt-1">
@@ -361,6 +406,16 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Upcoming Scheduled */}
+        <UpcomingTransactionsWidget
+          scheduledTransactions={scheduledTransactions}
+          transactions={transactions}
+          accounts={accounts}
+          categories={categories}
+          onExecute={handleExecuteScheduled}
+          onViewAll={() => router.push('/scheduled')}
+        />
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 gap-3">
