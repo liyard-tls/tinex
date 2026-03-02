@@ -1,17 +1,36 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { Loader2, TrendingDown, TrendingUp, ArrowRightLeft, Trophy, AlertCircle, ExternalLink, Link2, Link2Off, Check } from 'lucide-react';
-import Link from 'next/link';
-import BottomNav from '@/shared/components/layout/BottomNav';
-import PageHeader from '@/shared/components/layout/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/Card';
-import { useAuth } from '@/app/_providers/AuthProvider';
-import { useAppData } from '@/app/_providers/AppDataProvider';
-import { formatCurrency, convertCurrency } from '@/shared/services/currencyService';
-import { Currency, SYSTEM_CATEGORIES, Transaction } from '@/core/models';
-import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { cn } from '@/shared/utils/cn';
+import { useEffect, useState, useMemo } from "react";
+import {
+  Loader2,
+  TrendingDown,
+  TrendingUp,
+  ArrowRightLeft,
+  Trophy,
+  AlertCircle,
+  ExternalLink,
+  Link2,
+  Link2Off,
+  Check,
+} from "lucide-react";
+import Link from "next/link";
+import BottomNav from "@/shared/components/layout/BottomNav";
+import PageHeader from "@/shared/components/layout/PageHeader";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/shared/components/ui/Card";
+import { useAuth } from "@/app/_providers/AuthProvider";
+import { useAppData } from "@/app/_providers/AppDataProvider";
+import {
+  formatCurrency,
+  convertCurrency,
+} from "@/shared/services/currencyService";
+import { Currency, SYSTEM_CATEGORIES, Transaction } from "@/core/models";
+import { transactionRepository } from "@/core/repositories/TransactionRepository";
+import { cn } from "@/shared/utils/cn";
 import {
   LineChart,
   Line,
@@ -21,7 +40,7 @@ import {
   ResponsiveContainer,
   CartesianGrid,
   ReferenceLine,
-} from 'recharts';
+} from "recharts";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,11 +54,11 @@ interface TransferPair {
   // Converted to base currency
   sentBase: number;
   receivedBase: number;
-  feeBase: number;        // fee in base currency (0 if no fee)
-  diff: number;           // receivedBase - sentBase - feeBase  (negative = loss)
-  diffPct: number;        // diff / sentBase * 100
-  actualRate: number;     // receivedAmount / sentAmount  (same currencies = 0)
-  marketRate: number;     // market rate between the two currencies at the time
+  feeBase: number; // fee in base currency (0 if no fee)
+  diff: number; // receivedBase - sentBase - feeBase  (negative = loss)
+  diffPct: number; // diff / sentBase * 100
+  actualRate: number; // receivedAmount / sentAmount  (same currencies = 0)
+  marketRate: number; // market rate between the two currencies at the time
   date: Date;
 }
 
@@ -67,8 +86,15 @@ function ChartTooltip({ active, payload, baseCurrency }: TooltipProps) {
     const value = payload[0].value;
     return (
       <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-        <p className="text-xs text-muted-foreground mb-1">{payload[0].payload.label}</p>
-        <p className={cn('text-sm font-semibold', value >= 0 ? 'text-success' : 'text-destructive')}>
+        <p className="text-xs text-muted-foreground mb-1">
+          {payload[0].payload.label}
+        </p>
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            value >= 0 ? "text-success" : "text-destructive",
+          )}
+        >
           {formatCurrency(value, baseCurrency)}
         </p>
       </div>
@@ -80,22 +106,28 @@ function ChartTooltip({ active, payload, baseCurrency }: TooltipProps) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function diffColor(value: number) {
-  if (Math.abs(value) < 0.005) return 'text-muted-foreground';
-  return value > 0 ? 'text-success' : 'text-destructive';
+  if (Math.abs(value) < 0.005) return "text-muted-foreground";
+  return value > 0 ? "text-success" : "text-destructive";
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TransferAnalyticsPage() {
   const { user, authLoading } = useAuth();
-  const { transactions, categories, userSettings, dataLoading, refreshTransactions } = useAppData();
+  const {
+    transactions,
+    categories,
+    userSettings,
+    dataLoading,
+    refreshTransactions,
+  } = useAppData();
 
-  const baseCurrency = (userSettings?.baseCurrency || 'USD') as Currency;
+  const baseCurrency = (userSettings?.baseCurrency || "USD") as Currency;
 
   // ── Refresh transactions on mount (in case data was edited on another page) ──
   useEffect(() => {
     refreshTransactions();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Identify transfer category IDs ──────────────────────────────────────
@@ -128,7 +160,10 @@ export default function TransferAnalyticsPage() {
     const pairs: Array<{ out: Transaction; in: Transaction }> = [];
 
     // Pass 1: match by pairId
-    const pairIdMap = new Map<string, { out?: Transaction; in?: Transaction }>();
+    const pairIdMap = new Map<
+      string,
+      { out?: Transaction; in?: Transaction }
+    >();
     for (const t of transferOuts) {
       if (t.pairId) {
         const entry = pairIdMap.get(t.pairId) || {};
@@ -173,7 +208,7 @@ export default function TransferAnalyticsPage() {
       ]);
       await refreshTransactions();
     } catch (e) {
-      console.error('Failed to link pair', e);
+      console.error("Failed to link pair", e);
     } finally {
       setSavingLink(false);
       setLinkingOutId(null);
@@ -190,7 +225,7 @@ export default function TransferAnalyticsPage() {
       ]);
       await refreshTransactions();
     } catch (e) {
-      console.error('Failed to unlink pair', e);
+      console.error("Failed to unlink pair", e);
     } finally {
       setUnlinkingPairId(null);
     }
@@ -245,9 +280,12 @@ export default function TransferAnalyticsPage() {
         // Both exchangeRates are stored as (baseCurrency per 1 currency).
         // marketRate = out.exchangeRate / inTxn.exchangeRate
         // Show only if both transactions have stored rates (new transactions).
-        const hasStoredRates = out.exchangeRate !== undefined && inTxn.exchangeRate !== undefined;
+        const hasStoredRates =
+          out.exchangeRate !== undefined && inTxn.exchangeRate !== undefined;
         const marketRate =
-          out.currency !== inTxn.currency && hasStoredRates && inTxn.exchangeRate! > 0
+          out.currency !== inTxn.currency &&
+          hasStoredRates &&
+          inTxn.exchangeRate! > 0
             ? out.exchangeRate! / inTxn.exchangeRate!
             : 0;
 
@@ -277,7 +315,9 @@ export default function TransferAnalyticsPage() {
     };
 
     compute();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [rawPairs, userSettings, baseCurrency]);
 
   // ── Total loss ───────────────────────────────────────────────────────────
@@ -291,7 +331,8 @@ export default function TransferAnalyticsPage() {
     [pairs],
   );
 
-  const lossPercent = totalTransferred > 0 ? (totalLoss / totalTransferred) * 100 : 0;
+  const lossPercent =
+    totalTransferred > 0 ? (totalLoss / totalTransferred) * 100 : 0;
 
   // ── By currency pair ─────────────────────────────────────────────────────
   const byPair = useMemo((): CurrencyPairStat[] => {
@@ -313,7 +354,10 @@ export default function TransferAnalyticsPage() {
     return pairs.map((p) => {
       cumulative += p.diff;
       return {
-        label: p.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }),
+        label: p.date.toLocaleDateString("uk-UA", {
+          day: "numeric",
+          month: "short",
+        }),
         cumulative,
       };
     });
@@ -321,11 +365,17 @@ export default function TransferAnalyticsPage() {
 
   // ── Best / Worst ─────────────────────────────────────────────────────────
   const best = useMemo(
-    () => pairs.length > 0 ? pairs.reduce((a, b) => (a.diffPct > b.diffPct ? a : b)) : null,
+    () =>
+      pairs.length > 0
+        ? pairs.reduce((a, b) => (a.diffPct > b.diffPct ? a : b))
+        : null,
     [pairs],
   );
   const worst = useMemo(
-    () => pairs.length > 0 ? pairs.reduce((a, b) => (a.diffPct < b.diffPct ? a : b)) : null,
+    () =>
+      pairs.length > 0
+        ? pairs.reduce((a, b) => (a.diffPct < b.diffPct ? a : b))
+        : null,
     [pairs],
   );
 
@@ -346,25 +396,30 @@ export default function TransferAnalyticsPage() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-20">
-      <PageHeader title="Transfer Analytics" description="Currency conversion costs and transfer history" />
+      <PageHeader
+        title="Transfer Analytics"
+        description="Currency conversion costs and transfer history"
+      />
 
       <main className="px-4 py-4 space-y-4">
-
         {/* ── Summary Cards ──────────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-3">
           <Card>
             <CardContent className="pt-4 pb-4">
               <p className="text-xs text-muted-foreground mb-1">Total Loss</p>
-              <p className={cn('text-base font-bold', diffColor(totalLoss))}>
+              <p className={cn("text-base font-bold", diffColor(totalLoss))}>
                 {formatCurrency(totalLoss, baseCurrency)}
               </p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-4 pb-4">
-              <p className="text-xs text-muted-foreground mb-1">% of Transferred</p>
-              <p className={cn('text-base font-bold', diffColor(lossPercent))}>
-                {lossPercent >= 0 ? '+' : ''}{lossPercent.toFixed(2)}%
+              <p className="text-xs text-muted-foreground mb-1">
+                % of Transferred
+              </p>
+              <p className={cn("text-base font-bold", diffColor(lossPercent))}>
+                {lossPercent >= 0 ? "+" : ""}
+                {lossPercent.toFixed(2)}%
               </p>
             </CardContent>
           </Card>
@@ -387,9 +442,12 @@ export default function TransferAnalyticsPage() {
           <Card>
             <CardContent className="py-10 text-center">
               <ArrowRightLeft className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">No transfers found.</p>
+              <p className="text-sm text-muted-foreground">
+                No transfers found.
+              </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Transfers are matched by Transfer Out / Transfer In categories within 10 minutes.
+                Transfers are matched by Transfer Out / Transfer In categories
+                within 10 minutes.
               </p>
             </CardContent>
           </Card>
@@ -404,26 +462,50 @@ export default function TransferAnalyticsPage() {
               </CardHeader>
               <CardContent className="px-0 pb-2">
                 <ResponsiveContainer width="100%" height={160}>
-                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+                  <LineChart
+                    data={chartData}
+                    margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border/40"
+                    />
                     <XAxis
                       dataKey="label"
-                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      tick={{
+                        fontSize: 10,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      tick={{
+                        fontSize: 10,
+                        fill: "hsl(var(--muted-foreground))",
+                      }}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(v: number) => formatCurrency(v, baseCurrency)}
+                      tickFormatter={(v: number) =>
+                        formatCurrency(v, baseCurrency)
+                      }
                       width={60}
                     />
-                    <Tooltip content={<ChartTooltip baseCurrency={baseCurrency} />} />
-                    <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 2" />
+                    <Tooltip
+                      content={<ChartTooltip baseCurrency={baseCurrency} />}
+                    />
+                    <ReferenceLine
+                      y={0}
+                      stroke="hsl(var(--border))"
+                      strokeDasharray="4 2"
+                    />
                     <Line
                       type="monotone"
                       dataKey="cumulative"
-                      stroke={totalLoss >= 0 ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
+                      stroke={
+                        totalLoss >= 0
+                          ? "hsl(var(--success))"
+                          : "hsl(var(--destructive))"
+                      }
                       strokeWidth={2}
                       dot={false}
                       activeDot={{ r: 4 }}
@@ -437,17 +519,29 @@ export default function TransferAnalyticsPage() {
             {byPair.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Loss by Currency Pair</CardTitle>
+                  <CardTitle className="text-sm">
+                    Loss by Currency Pair
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {byPair.map((stat) => (
-                      <div key={stat.pair} className="flex items-center justify-between px-4 py-3">
+                      <div
+                        key={stat.pair}
+                        className="flex items-center justify-between px-4 py-3"
+                      >
                         <div>
                           <p className="text-sm font-medium">{stat.pair}</p>
-                          <p className="text-xs text-muted-foreground">{stat.count} transfer{stat.count !== 1 ? 's' : ''}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {stat.count} transfer{stat.count !== 1 ? "s" : ""}
+                          </p>
                         </div>
-                        <p className={cn('text-sm font-semibold', diffColor(stat.totalLoss))}>
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            diffColor(stat.totalLoss),
+                          )}
+                        >
                           {formatCurrency(stat.totalLoss, baseCurrency)}
                         </p>
                       </div>
@@ -466,31 +560,61 @@ export default function TransferAnalyticsPage() {
                       <div className="flex items-start gap-3">
                         <Trophy className="h-5 w-5 text-success mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-success mb-0.5">Best Transfer</p>
+                          <p className="text-xs font-medium text-success mb-0.5">
+                            Best Transfer
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {best.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {best.date.toLocaleDateString("uk-UA", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </p>
                           <p className="text-sm mt-1">
-                            {best.sentAmount.toLocaleString()} {best.sentCurrency}
+                            {best.sentAmount.toLocaleString()}{" "}
+                            {best.sentCurrency}
                             {best.sentCurrency !== best.receivedCurrency && (
-                              <> → {best.receivedAmount.toLocaleString()} {best.receivedCurrency}</>
+                              <>
+                                {" "}
+                                → {best.receivedAmount.toLocaleString()}{" "}
+                                {best.receivedCurrency}
+                              </>
                             )}
                           </p>
-                          {best.sentCurrency !== best.receivedCurrency && best.actualRate > 0 && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Rate: {best.actualRate.toFixed(4)}{best.marketRate > 0 ? ` (market: ${best.marketRate.toFixed(4)})` : ''}
-                            </p>
-                          )}
-                          <p className={cn('text-sm font-semibold mt-1', diffColor(best.diff))}>
-                            {best.diffPct >= 0 ? '+' : ''}{best.diffPct.toFixed(2)}% ({formatCurrency(best.diff, baseCurrency)})
+                          {best.sentCurrency !== best.receivedCurrency &&
+                            best.actualRate > 0 && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Rate: {best.actualRate.toFixed(4)}
+                                {best.marketRate > 0
+                                  ? ` (market: ${best.marketRate.toFixed(4)})`
+                                  : ""}
+                              </p>
+                            )}
+                          <p
+                            className={cn(
+                              "text-sm font-semibold mt-1",
+                              diffColor(best.diff),
+                            )}
+                          >
+                            {best.diffPct >= 0 ? "+" : ""}
+                            {best.diffPct.toFixed(2)}% (
+                            {formatCurrency(best.diff, baseCurrency)})
                           </p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Link href={`/transactions/${best.outTxn.id}?returnTo=/transfer-analytics`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                              <ExternalLink className="h-3 w-3" />Transfer Out
+                            <Link
+                              href={`/transactions/${best.outTxn.id}?returnTo=/transfer-analytics`}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Out
                             </Link>
                             <span className="text-muted-foreground/40">·</span>
-                            <Link href={`/transactions/${best.inTxn.id}?returnTo=/transfer-analytics`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                              <ExternalLink className="h-3 w-3" />Transfer In
+                            <Link
+                              href={`/transactions/${best.inTxn.id}?returnTo=/transfer-analytics`}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              In
                             </Link>
                           </div>
                         </div>
@@ -505,31 +629,61 @@ export default function TransferAnalyticsPage() {
                       <div className="flex items-start gap-3">
                         <AlertCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-destructive mb-0.5">Worst Transfer</p>
+                          <p className="text-xs font-medium text-destructive mb-0.5">
+                            Worst Transfer
+                          </p>
                           <p className="text-xs text-muted-foreground">
-                            {worst.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {worst.date.toLocaleDateString("uk-UA", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </p>
                           <p className="text-sm mt-1">
-                            {worst.sentAmount.toLocaleString()} {worst.sentCurrency}
+                            {worst.sentAmount.toLocaleString()}{" "}
+                            {worst.sentCurrency}
                             {worst.sentCurrency !== worst.receivedCurrency && (
-                              <> → {worst.receivedAmount.toLocaleString()} {worst.receivedCurrency}</>
+                              <>
+                                {" "}
+                                → {worst.receivedAmount.toLocaleString()}{" "}
+                                {worst.receivedCurrency}
+                              </>
                             )}
                           </p>
-                          {worst.sentCurrency !== worst.receivedCurrency && worst.actualRate > 0 && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Rate: {worst.actualRate.toFixed(4)}{worst.marketRate > 0 ? ` (market: ${worst.marketRate.toFixed(4)})` : ''}
-                            </p>
-                          )}
-                          <p className={cn('text-sm font-semibold mt-1', diffColor(worst.diff))}>
-                            {worst.diffPct >= 0 ? '+' : ''}{worst.diffPct.toFixed(2)}% ({formatCurrency(worst.diff, baseCurrency)})
+                          {worst.sentCurrency !== worst.receivedCurrency &&
+                            worst.actualRate > 0 && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Rate: {worst.actualRate.toFixed(4)}
+                                {worst.marketRate > 0
+                                  ? ` (market: ${worst.marketRate.toFixed(4)})`
+                                  : ""}
+                              </p>
+                            )}
+                          <p
+                            className={cn(
+                              "text-sm font-semibold mt-1",
+                              diffColor(worst.diff),
+                            )}
+                          >
+                            {worst.diffPct >= 0 ? "+" : ""}
+                            {worst.diffPct.toFixed(2)}% (
+                            {formatCurrency(worst.diff, baseCurrency)})
                           </p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Link href={`/transactions/${worst.outTxn.id}?returnTo=/transfer-analytics`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                              <ExternalLink className="h-3 w-3" />Transfer Out
+                            <Link
+                              href={`/transactions/${worst.outTxn.id}?returnTo=/transfer-analytics`}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Out
                             </Link>
                             <span className="text-muted-foreground/40">·</span>
-                            <Link href={`/transactions/${worst.inTxn.id}?returnTo=/transfer-analytics`} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors">
-                              <ExternalLink className="h-3 w-3" />Transfer In
+                            <Link
+                              href={`/transactions/${worst.inTxn.id}?returnTo=/transfer-analytics`}
+                              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              In
                             </Link>
                           </div>
                         </div>
@@ -542,7 +696,9 @@ export default function TransferAnalyticsPage() {
 
             {/* ── Transfer History ─────────────────────────────────────────── */}
             <div>
-              <p className="text-sm font-semibold px-1 mb-3">Transfer History</p>
+              <p className="text-sm font-semibold px-1 mb-3">
+                Transfer History
+              </p>
               <div className="space-y-3">
                 {[...pairs].reverse().map((p, idx) => {
                   const unlinkKey = p.outTxn.pairId || p.outTxn.id;
@@ -553,34 +709,52 @@ export default function TransferAnalyticsPage() {
                         {/* Header row: date + diff */}
                         <div className="flex items-center justify-between px-4 pt-3 pb-2">
                           <p className="text-xs text-muted-foreground">
-                            {p.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {p.date.toLocaleDateString("uk-UA", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
                           </p>
                           <div className="flex items-center gap-1.5">
-                            {Math.abs(p.diff) < 0.005
-                              ? <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
-                              : p.diff > 0
-                                ? <TrendingUp className="h-3 w-3 text-success" />
-                                : <TrendingDown className="h-3 w-3 text-destructive" />
-                            }
-                            <span className={cn('text-sm font-semibold', diffColor(p.diff))}>
+                            {Math.abs(p.diff) < 0.005 ? (
+                              <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+                            ) : p.diff > 0 ? (
+                              <TrendingUp className="h-3 w-3 text-success" />
+                            ) : (
+                              <TrendingDown className="h-3 w-3 text-destructive" />
+                            )}
+                            <span
+                              className={cn(
+                                "text-sm font-semibold",
+                                diffColor(p.diff),
+                              )}
+                            >
                               {formatCurrency(p.diff, baseCurrency)}
                             </span>
-                            <span className={cn('text-xs', diffColor(p.diff))}>
-                              ({p.diffPct >= 0 ? '+' : ''}{p.diffPct.toFixed(2)}%)
+                            <span className={cn("text-xs", diffColor(p.diff))}>
+                              ({p.diffPct >= 0 ? "+" : ""}
+                              {p.diffPct.toFixed(2)}%)
                             </span>
                           </div>
                         </div>
 
-                        {/* Out / In columns */}
+                        {/* From / To columns */}
                         <div className="grid grid-cols-2 border-t border-border">
-                          {/* OUT */}
+                          {/* FROM (was IN) */}
                           <div className="px-3 py-2.5 border-r border-border">
-                            <p className="text-[10px] font-semibold text-destructive/70 uppercase tracking-wide mb-1">Out</p>
-                            <p className="text-sm font-semibold">{p.sentAmount.toLocaleString()} {p.sentCurrency}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.outTxn.description}</p>
+                            <p className="text-[10px] font-semibold text-destructive/70 uppercase tracking-wide mb-1">
+                              Out
+                            </p>
+                            <p className="text-sm font-semibold">
+                              {p.sentAmount.toLocaleString()} {p.sentCurrency}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {p.outTxn.description}
+                            </p>
                             {p.outTxn.fee !== undefined && p.outTxn.fee > 0 && (
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                fee {p.outTxn.fee.toLocaleString()} {p.sentCurrency}
+                                fee {p.outTxn.fee.toLocaleString()}{" "}
+                                {p.sentCurrency}
                               </p>
                             )}
                             <Link
@@ -592,11 +766,18 @@ export default function TransferAnalyticsPage() {
                             </Link>
                           </div>
 
-                          {/* IN */}
+                          {/* TO (was OUT) */}
                           <div className="px-3 py-2.5">
-                            <p className="text-[10px] font-semibold text-success/70 uppercase tracking-wide mb-1">In</p>
-                            <p className="text-sm font-semibold">{p.receivedAmount.toLocaleString()} {p.receivedCurrency}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 truncate">{p.inTxn.description}</p>
+                            <p className="text-[10px] font-semibold text-success/70 uppercase tracking-wide mb-1">
+                              In
+                            </p>
+                            <p className="text-sm font-semibold">
+                              {p.receivedAmount.toLocaleString()}{" "}
+                              {p.receivedCurrency}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                              {p.inTxn.description}
+                            </p>
                             <Link
                               href={`/transactions/${p.inTxn.id}?returnTo=/transfer-analytics`}
                               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-1.5"
@@ -614,21 +795,30 @@ export default function TransferAnalyticsPage() {
                             disabled={isUnlinking}
                             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
                           >
-                            {isUnlinking
-                              ? <Loader2 className="h-3 w-3 animate-spin" />
-                              : <Link2Off className="h-3 w-3" />
-                            }
+                            {isUnlinking ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Link2Off className="h-3 w-3" />
+                            )}
                             Unlink
                           </button>
-                          {p.sentCurrency !== p.receivedCurrency && p.actualRate > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              rate {p.actualRate.toFixed(4)}
-                              {p.marketRate > 0
-                                ? <span className="text-muted-foreground/60"> · mkt {p.marketRate.toFixed(4)}</span>
-                                : <span className="text-muted-foreground/40"> · no mkt rate</span>
-                              }
-                            </p>
-                          )}
+                          {p.sentCurrency !== p.receivedCurrency &&
+                            p.actualRate > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                rate {p.actualRate.toFixed(4)}
+                                {p.marketRate > 0 ? (
+                                  <span className="text-muted-foreground/60">
+                                    {" "}
+                                    · mkt {p.marketRate.toFixed(4)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/40">
+                                    {" "}
+                                    · no mkt rate
+                                  </span>
+                                )}
+                              </p>
+                            )}
                         </div>
                       </CardContent>
                     </Card>
@@ -653,14 +843,19 @@ export default function TransferAnalyticsPage() {
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-
                 {unlinkedOuts.map((out) => (
                   <div key={out.id} className="px-4 py-3">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-destructive/80 bg-destructive/10 rounded px-1.5 py-0.5">Out</span>
+                        <span className="text-xs font-medium text-destructive/80 bg-destructive/10 rounded px-1.5 py-0.5">
+                          From
+                        </span>
                         <span className="text-xs text-muted-foreground">
-                          {out.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {out.date.toLocaleDateString("uk-UA", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </span>
                       </div>
                       <Link
@@ -670,15 +865,23 @@ export default function TransferAnalyticsPage() {
                         <ExternalLink className="h-3 w-3" />
                       </Link>
                     </div>
-                    <p className="text-sm font-medium">{out.amount.toLocaleString()} {out.currency}</p>
-                    <p className="text-xs text-muted-foreground mb-2">{out.description}</p>
+                    <p className="text-sm font-medium">
+                      {out.amount.toLocaleString()} {out.currency}
+                    </p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {out.description}
+                    </p>
 
                     {/* Link to a Transfer In */}
                     {linkingOutId === out.id ? (
                       <div className="space-y-1">
-                        <p className="text-xs text-muted-foreground">Select matching Transfer In:</p>
+                        <p className="text-xs text-muted-foreground">
+                          Select matching Transfer In:
+                        </p>
                         {unlinkedIns.length === 0 ? (
-                          <p className="text-xs text-muted-foreground italic">No unlinked Transfer In transactions</p>
+                          <p className="text-xs text-muted-foreground italic">
+                            No unlinked Transfer In transactions
+                          </p>
                         ) : (
                           unlinkedIns.map((inTxn) => (
                             <button
@@ -688,15 +891,23 @@ export default function TransferAnalyticsPage() {
                               className="w-full flex items-center justify-between px-3 py-2 rounded-md border border-border hover:border-primary hover:bg-primary/5 transition-colors text-left"
                             >
                               <div>
-                                <p className="text-xs font-medium">{inTxn.amount.toLocaleString()} {inTxn.currency}</p>
+                                <p className="text-xs font-medium">
+                                  {inTxn.amount.toLocaleString()}{" "}
+                                  {inTxn.currency}
+                                </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {inTxn.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} · {inTxn.description}
+                                  {inTxn.date.toLocaleDateString("uk-UA", {
+                                    day: "numeric",
+                                    month: "short",
+                                  })}{" "}
+                                  · {inTxn.description}
                                 </p>
                               </div>
-                              {savingLink
-                                ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                : <Check className="h-3 w-3 text-success" />
-                              }
+                              {savingLink ? (
+                                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                              ) : (
+                                <Check className="h-3 w-3 text-success" />
+                              )}
                             </button>
                           ))
                         )}
@@ -713,23 +924,36 @@ export default function TransferAnalyticsPage() {
                         className="flex items-center gap-1 text-xs text-amber-500 hover:text-amber-400 transition-colors"
                       >
                         <Link2 className="h-3 w-3" />
-                        Link to Transfer In
+                        Link to Transfer To
                       </button>
                     )}
                   </div>
                 ))}
 
                 {unlinkedIns.map((inTxn) => (
-                  <div key={inTxn.id} className="px-4 py-3 flex items-center justify-between">
+                  <div
+                    key={inTxn.id}
+                    className="px-4 py-3 flex items-center justify-between"
+                  >
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-success/80 bg-success/10 rounded px-1.5 py-0.5">In</span>
+                        <span className="text-xs font-medium text-success/80 bg-success/10 rounded px-1.5 py-0.5">
+                          To
+                        </span>
                         <span className="text-xs text-muted-foreground">
-                          {inTxn.date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {inTxn.date.toLocaleDateString("uk-UA", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
                         </span>
                       </div>
-                      <p className="text-sm font-medium">{inTxn.amount.toLocaleString()} {inTxn.currency}</p>
-                      <p className="text-xs text-muted-foreground">{inTxn.description}</p>
+                      <p className="text-sm font-medium">
+                        {inTxn.amount.toLocaleString()} {inTxn.currency}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {inTxn.description}
+                      </p>
                     </div>
                     <Link
                       href={`/transactions/${inTxn.id}?returnTo=/transfer-analytics`}
@@ -739,12 +963,10 @@ export default function TransferAnalyticsPage() {
                     </Link>
                   </div>
                 ))}
-
               </div>
             </CardContent>
           </Card>
         )}
-
       </main>
 
       <BottomNav />

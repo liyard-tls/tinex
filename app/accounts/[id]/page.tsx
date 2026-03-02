@@ -48,6 +48,8 @@ export default function AccountDetailPage() {
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [typeSelectorMounted, setTypeSelectorMounted] = useState(false);
   const [typeSelectorVisible, setTypeSelectorVisible] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -152,6 +154,20 @@ export default function AccountDetailPage() {
     }
   };
 
+  const handleSaveName = async () => {
+    if (!user || !account) return;
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === account.name) { setEditingName(false); return; }
+    try {
+      await accountRepository.update({ id: account.id, name: trimmed });
+      await refreshAccounts();
+      await loadAccountData(accountId, user.uid);
+      setEditingName(false);
+    } catch (error) {
+      console.error('Failed to rename account:', error);
+    }
+  };
+
   const handleSaveBalance = async () => {
     if (!user || !account) return;
     const parsed = parseFloat(newBalance);
@@ -192,7 +208,37 @@ export default function AccountDetailPage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <PageHeader
-        title={account.name}
+        title={
+          editingName ? (
+            <div className="flex items-center gap-1.5 flex-1">
+              <Input
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSaveName();
+                  if (e.key === 'Escape') setEditingName(false);
+                }}
+                className="h-8 text-base font-semibold py-0 px-2"
+              />
+              <button onClick={handleSaveName} className="text-success hover:opacity-80">
+                <Check className="h-4 w-4" />
+              </button>
+              <button onClick={() => setEditingName(false)} className="text-muted-foreground hover:opacity-80">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setNewName(account.name); setEditingName(true); }}
+              className="flex items-center gap-1.5 group text-left"
+            >
+              <span>{account.name}</span>
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </button>
+          )
+        }
         description={account.type.replace('_', ' ')}
         backHref="/accounts"
         rightElement={

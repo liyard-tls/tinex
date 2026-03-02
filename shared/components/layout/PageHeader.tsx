@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 
 interface PageHeaderProps {
-  title: string;
+  title: ReactNode;
   description?: string;
   backHref?: string;
   onBack?: () => void;
