@@ -1,5 +1,5 @@
 export type AccountType = 'bank' | 'cash' | 'credit_card' | 'investment' | 'savings' | 'other';
-export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'UAH' | 'SGD';
+export type Currency = 'USD' | 'EUR' | 'GBP' | 'JPY' | 'CAD' | 'AUD' | 'CHF' | 'CNY' | 'UAH' | 'SGD' | 'PLN';
 
 export interface Account {
   id: string;
@@ -79,6 +79,7 @@ export const CURRENCIES: { value: Currency; label: string; symbol: string }[] = 
   { value: 'CNY', label: 'Chinese Yuan', symbol: '¥' },
   { value: 'UAH', label: 'Ukrainian Hryvnia', symbol: '₴' },
   { value: 'SGD', label: 'Singapore Dollar', symbol: 'S$' },
+  { value: 'PLN', label: 'Polish Zloty', symbol: 'zł' },
 ];
 
 // Helper function to get default icon and color for account type

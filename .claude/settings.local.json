@@ -21,7 +21,9 @@
       "Bash(npm install:*)",
       "Bash(/Users/wirbel/UnityProjects/tinex/app/_providers/AppDataProvider.tsx:*)",
       "Bash(/Users/wirbel/UnityProjects/tinex/app/_providers/Providers.tsx:*)",
-      "Bash(/Users/wirbel/UnityProjects/tinex/app/_providers/AuthProvider.tsx:*)"
+      "Bash(/Users/wirbel/UnityProjects/tinex/app/_providers/AuthProvider.tsx:*)",
+      "Bash(xargs -I {} sh -c 'echo \"\"=== {} ===\"\" && head -20 \"\"{}\"\"')",
+      "Bash(git -C /Users/wirbel/UnityProjects/tinex log --oneline -15)"
     ],
     "deny": [],
     "ask": []

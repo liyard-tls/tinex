@@ -48,6 +48,7 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: '₹',
   UAH: '₴',
   SGD: 'S$',
+  PLN: 'zł',
 } as const;
 
 export const DEFAULT_CURRENCY = 'USD';

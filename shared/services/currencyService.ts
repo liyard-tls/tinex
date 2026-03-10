@@ -62,6 +62,7 @@ function getFallbackRates(): Record<string, number> {
     CNY: 7.24,
     UAH: 41.92,
     SGD: 1.34,
+    PLN: 4.02,
   };
 }
 
@@ -197,6 +198,7 @@ export function formatCurrency(amount: number, currency: Currency): string {
     CNY: "¥",
     UAH: "₴",
     SGD: "S$",
+    PLN: "zł",
   };
 
   const symbol = currencySymbols[currency] || currency;
