@@ -21,8 +21,9 @@ import {
   Loader2,
   DatabaseBackup,
   HardDriveUpload,
+  ArrowLeftRight,
 } from 'lucide-react';
-import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { FIREBASE_COLLECTIONS } from '@/shared/config/constants';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
@@ -38,12 +39,17 @@ import { scheduledTransactionRepository } from '@/core/repositories/ScheduledTra
 import { Currency, CURRENCIES } from '@/core/models';
 import { useAuth } from '@/app/_providers/AuthProvider';
 import { useAppData } from '@/app/_providers/AppDataProvider';
+import { convertCurrency } from '@/shared/services/currencyService';
 
 export default function ProfilePage() {
   const { user, authLoading, signOut } = useAuth();
-  const { userSettings, dataLoading, refreshUserSettings, refreshCategories, refreshTransactions } = useAppData();
+  const { userSettings, dataLoading, accounts, refreshUserSettings, refreshCategories, refreshTransactions } = useAppData();
   const [clearing, setClearing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [showCurrencyConverter, setShowCurrencyConverter] = useState(false);
+  const [convertAccountId, setConvertAccountId] = useState('');
+  const [convertToCurrency, setConvertToCurrency] = useState<Currency>('USD');
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -361,6 +367,51 @@ export default function ProfilePage() {
     }
   };
 
+  const handleConvertAccountCurrency = async () => {
+    if (!user || !convertAccountId) return;
+    const account = accounts.find(a => a.id === convertAccountId);
+    if (!account) return;
+
+    const confirmText = 'CONVERT CURRENCY';
+    const userInput = prompt(
+      `⚠️ This will convert account "${account.name}" (${account.currency}) and ALL its transactions to ${convertToCurrency}.\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+    if (userInput !== confirmText) {
+      if (userInput !== null) alert('Conversion cancelled.');
+      return;
+    }
+
+    setConverting(true);
+    try {
+      const txns = await transactionRepository.getByAccountId(convertAccountId, user.uid);
+
+      for (const txn of txns) {
+        const newAmount = await convertCurrency(txn.amount, txn.currency, convertToCurrency);
+        await updateDoc(doc(db, FIREBASE_COLLECTIONS.TRANSACTIONS, txn.id), {
+          amount: newAmount,
+          currency: convertToCurrency,
+          updatedAt: Timestamp.now(),
+        });
+      }
+
+      const newBalance = await convertCurrency(account.balance, account.currency, convertToCurrency);
+      await updateDoc(doc(db, FIREBASE_COLLECTIONS.ACCOUNTS, account.id), {
+        balance: newBalance,
+        currency: convertToCurrency,
+        updatedAt: Timestamp.now(),
+      });
+
+      alert(`Converted ${txns.length} transaction(s). Account "${account.name}" is now in ${convertToCurrency}.`);
+      window.location.reload();
+    } catch (error) {
+      console.error('Currency conversion failed:', error);
+      alert('Conversion failed. Please try again.');
+    } finally {
+      setConverting(false);
+    }
+  };
+
   const handleSignOut = async () => {
     if (!confirm('Are you sure you want to sign out?')) return;
     await signOut();
@@ -631,6 +682,55 @@ export default function ProfilePage() {
                 e.target.value = '';
               }}
             />
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-blue-400 hover:text-blue-400 border-blue-400/50"
+              onClick={() => setShowCurrencyConverter(!showCurrencyConverter)}
+              disabled={converting || clearing || exporting}
+            >
+              <ArrowLeftRight className="h-4 w-4 mr-2" />
+              Convert Account Currency
+            </Button>
+
+            {showCurrencyConverter && (
+              <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                <select
+                  value={convertAccountId}
+                  onChange={(e) => setConvertAccountId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md"
+                >
+                  <option value="">Select account...</option>
+                  {accounts.map(a => (
+                    <option key={a.id} value={a.id}>{a.name} ({a.currency})</option>
+                  ))}
+                </select>
+                <select
+                  value={convertToCurrency}
+                  onChange={(e) => setConvertToCurrency(e.target.value as Currency)}
+                  className="w-full px-3 py-2 text-sm bg-background border border-border rounded-md"
+                >
+                  {CURRENCIES.filter(c => {
+                    const acct = accounts.find(a => a.id === convertAccountId);
+                    return !acct || c.value !== acct.currency;
+                  }).map(c => (
+                    <option key={c.value} value={c.value}>{c.label} ({c.symbol})</option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={handleConvertAccountCurrency}
+                  disabled={!convertAccountId || converting}
+                >
+                  {converting ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Converting...</>
+                  ) : 'Convert'}
+                </Button>
+              </div>
+            )}
 
             <Button
               variant="outline"
