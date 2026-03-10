@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
@@ -19,13 +19,22 @@ import {
   AlertTriangle,
   RefreshCw,
   Loader2,
+  DatabaseBackup,
+  HardDriveUpload,
 } from 'lucide-react';
+import { addDoc, collection, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { FIREBASE_COLLECTIONS } from '@/shared/config/constants';
 import { userSettingsRepository } from '@/core/repositories/UserSettingsRepository';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { accountRepository } from '@/core/repositories/AccountRepository';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { importedTransactionRepository } from '@/core/repositories/ImportedTransactionRepository';
+import { budgetRepository } from '@/core/repositories/BudgetRepository';
+import { wishlistRepository } from '@/core/repositories/WishlistRepository';
+import { wishlistItemRepository } from '@/core/repositories/WishlistItemRepository';
+import { scheduledTransactionRepository } from '@/core/repositories/ScheduledTransactionRepository';
 import { Currency, CURRENCIES } from '@/core/models';
 import { useAuth } from '@/app/_providers/AuthProvider';
 import { useAppData } from '@/app/_providers/AppDataProvider';
@@ -34,8 +43,10 @@ export default function ProfilePage() {
   const { user, authLoading, signOut } = useAuth();
   const { userSettings, dataLoading, refreshUserSettings, refreshCategories, refreshTransactions } = useAppData();
   const [clearing, setClearing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<Event | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // PWA Install event listener
   useEffect(() => {
@@ -89,6 +100,265 @@ export default function ProfilePage() {
     }
 
     setInstallPrompt(null);
+  };
+
+  const handleExportData = async () => {
+    if (!user) return;
+    setExporting(true);
+    try {
+      const [
+        transactions,
+        accounts,
+        categories,
+        tags,
+        budgets,
+        wishlists,
+        wishlistItems,
+        scheduledTransactions,
+        settings,
+      ] = await Promise.all([
+        transactionRepository.getByUserId(user.uid),
+        accountRepository.getByUserId(user.uid),
+        categoryRepository.getByUserId(user.uid),
+        tagRepository.getByUserId(user.uid),
+        budgetRepository.getByUserId(user.uid),
+        wishlistRepository.getAll(user.uid),
+        wishlistItemRepository.getByUserId(user.uid),
+        scheduledTransactionRepository.getByUserId(user.uid),
+        userSettingsRepository.get(user.uid),
+      ]);
+
+      const backup = {
+        exportedAt: new Date().toISOString(),
+        version: '1',
+        userId: user.uid,
+        data: {
+          transactions,
+          accounts,
+          categories,
+          tags,
+          budgets,
+          wishlists,
+          wishlistItems,
+          scheduledTransactions,
+          userSettings: settings,
+        },
+      };
+
+      const json = JSON.stringify(backup, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tinex-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      alert('Failed to export data. Please try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportData = async (file: File) => {
+    if (!user) return;
+
+    const confirmText = 'IMPORT ALL DATA';
+    const userInput = prompt(
+      `⚠️ WARNING: This will overwrite ALL existing data with the backup.\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) alert('Import cancelled.');
+      return;
+    }
+
+    setClearing(true);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      if (!backup.version || !backup.data) {
+        alert('Invalid backup file.');
+        return;
+      }
+
+      const d = backup.data;
+
+      // Delete all existing data (sequentially to avoid race conditions;
+      // transactionRepository.deleteAllForUser already handles importedTransactions)
+      const steps: Array<[string, () => Promise<void>]> = [
+        ['transactions', () => transactionRepository.deleteAllForUser(user.uid)],
+        ['accounts', () => accountRepository.deleteAllForUser(user.uid)],
+        ['categories', () => categoryRepository.deleteAllForUser(user.uid)],
+        ['tags', () => tagRepository.deleteAllForUser(user.uid)],
+        ['budgets', () => budgetRepository.deleteAllForUser(user.uid)],
+        ['wishlists', () => wishlistRepository.deleteAllForUser(user.uid)],
+        ['wishlistItems', () => wishlistItemRepository.deleteAllForUser(user.uid)],
+        ['scheduledTransactions', () => scheduledTransactionRepository.deleteAllForUser(user.uid)],
+      ];
+      for (const [name, fn] of steps) {
+        console.log(`[import] deleting ${name}...`);
+        await fn();
+        console.log(`[import] deleted ${name}`);
+      }
+
+      // Helper: convert ISO date strings back to Firestore Timestamps
+      const ts = (v: string | null | undefined): Timestamp | null => {
+        if (!v) return null;
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? null : Timestamp.fromDate(d);
+      };
+
+      // Restore with fresh Firestore IDs (addDoc) and remap cross-references
+      const accountIdMap = new Map<string, string>(); // oldId -> newId
+      const categoryIdMap = new Map<string, string>();
+      const tagIdMap = new Map<string, string>();
+      const wishlistIdMap = new Map<string, string>();
+
+      console.log(`[import] restoring ${d.accounts?.length ?? 0} accounts...`);
+      for (const a of d.accounts ?? []) {
+        const ref = await addDoc(collection(db, FIREBASE_COLLECTIONS.ACCOUNTS), {
+          userId: user.uid, name: a.name, type: a.type, currency: a.currency,
+          balance: a.balance, isDefault: a.isDefault,
+          ...(a.color && { color: a.color }),
+          ...(a.icon && { icon: a.icon }),
+          ...(a.isSaving !== undefined && { isSaving: a.isSaving }),
+          ...(a.notes && { notes: a.notes }),
+          createdAt: ts(a.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(a.updatedAt) ?? Timestamp.now(),
+        });
+        accountIdMap.set(a.id, ref.id);
+      }
+
+      console.log(`[import] restoring ${d.categories?.length ?? 0} categories...`);
+      for (const c of d.categories ?? []) {
+        const ref = await addDoc(collection(db, FIREBASE_COLLECTIONS.CATEGORIES), {
+          userId: user.uid, name: c.name, type: c.type, icon: c.icon,
+          color: c.color, isDefault: c.isDefault ?? false,
+          ...(c.parentId && { parentId: c.parentId }),
+          createdAt: ts(c.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(c.updatedAt) ?? Timestamp.now(),
+        });
+        categoryIdMap.set(c.id, ref.id);
+      }
+
+      console.log(`[import] restoring ${d.tags?.length ?? 0} tags...`);
+      for (const t of d.tags ?? []) {
+        const ref = await addDoc(collection(db, FIREBASE_COLLECTIONS.TAGS), {
+          userId: user.uid, name: t.name, color: t.color,
+          createdAt: ts(t.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(t.updatedAt) ?? Timestamp.now(),
+        });
+        tagIdMap.set(t.id, ref.id);
+      }
+
+      console.log(`[import] restoring ${d.transactions?.length ?? 0} transactions...`);
+      // pairId links Transfer Out ↔ Transfer In pairs; remap to new pair UUIDs
+      const pairIdMap = new Map<string, string>();
+      for (const t of d.transactions ?? []) {
+        const newAccountId = accountIdMap.get(t.accountId) ?? t.accountId;
+        const newCategoryId = categoryIdMap.get(t.categoryId) ?? t.categoryId;
+        const newTags = (t.tags ?? []).map((tid: string) => tagIdMap.get(tid) ?? tid);
+
+        let newPairId: string | undefined;
+        if (t.pairId) {
+          if (!pairIdMap.has(t.pairId)) {
+            pairIdMap.set(t.pairId, crypto.randomUUID());
+          }
+          newPairId = pairIdMap.get(t.pairId);
+        }
+
+        const txData: Record<string, unknown> = {
+          userId: user.uid, accountId: newAccountId, amount: t.amount,
+          currency: t.currency, type: t.type, categoryId: newCategoryId,
+          description: t.description, date: ts(t.date) ?? Timestamp.now(),
+          tags: newTags,
+          createdAt: ts(t.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(t.updatedAt) ?? Timestamp.now(),
+        };
+        if (t.sourceName) txData.sourceName = t.sourceName;
+        if (t.merchantName) txData.merchantName = t.merchantName;
+        if (t.notes) txData.notes = t.notes;
+        if (t.excludeFromAnalytics !== undefined) txData.excludeFromAnalytics = t.excludeFromAnalytics;
+        if (t.exchangeRate !== undefined) txData.exchangeRate = t.exchangeRate;
+        if (t.fee !== undefined) txData.fee = t.fee;
+        if (newPairId) txData.pairId = newPairId;
+        await addDoc(collection(db, FIREBASE_COLLECTIONS.TRANSACTIONS), txData);
+      }
+
+      console.log(`[import] restoring ${d.budgets?.length ?? 0} budgets...`);
+      for (const b of d.budgets ?? []) {
+        const newCategoryId = categoryIdMap.get(b.categoryId) ?? b.categoryId;
+        await addDoc(collection(db, FIREBASE_COLLECTIONS.BUDGETS), {
+          userId: user.uid, categoryId: newCategoryId, amount: b.amount,
+          period: b.period, startDate: ts(b.startDate) ?? Timestamp.now(),
+          alertThreshold: b.alertThreshold ?? 80, isActive: b.isActive ?? true,
+          ...(b.endDate && { endDate: ts(b.endDate) }),
+          createdAt: ts(b.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(b.updatedAt) ?? Timestamp.now(),
+        });
+      }
+
+      console.log(`[import] restoring ${d.wishlists?.length ?? 0} wishlists...`);
+      for (const w of d.wishlists ?? []) {
+        const ref = await addDoc(collection(db, FIREBASE_COLLECTIONS.WISHLISTS), {
+          userId: user.uid, name: w.name,
+          ...(w.description && { description: w.description }),
+          createdAt: ts(w.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(w.updatedAt) ?? Timestamp.now(),
+        });
+        wishlistIdMap.set(w.id, ref.id);
+      }
+
+      console.log(`[import] restoring ${d.wishlistItems?.length ?? 0} wishlist items...`);
+      for (const item of d.wishlistItems ?? []) {
+        const newWishlistId = wishlistIdMap.get(item.wishlistId) ?? item.wishlistId;
+        const newCategoryId = categoryIdMap.get(item.categoryId) ?? item.categoryId;
+        await addDoc(collection(db, FIREBASE_COLLECTIONS.WISHLIST_ITEMS), {
+          userId: user.uid, wishlistId: newWishlistId, name: item.name,
+          amount: item.amount, currency: item.currency, categoryId: newCategoryId,
+          isConfirmed: item.isConfirmed ?? false,
+          addedAt: ts(item.addedAt) ?? Timestamp.now(),
+          createdAt: ts(item.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(item.updatedAt) ?? Timestamp.now(),
+        });
+      }
+
+      console.log(`[import] restoring ${d.scheduledTransactions?.length ?? 0} scheduled transactions...`);
+      for (const s of d.scheduledTransactions ?? []) {
+        const newAccountId = accountIdMap.get(s.accountId) ?? s.accountId;
+        const newCategoryId = categoryIdMap.get(s.categoryId) ?? s.categoryId;
+        const newTags = (s.tags ?? []).map((tid: string) => tagIdMap.get(tid) ?? tid);
+        await addDoc(collection(db, FIREBASE_COLLECTIONS.SCHEDULED_TRANSACTIONS), {
+          userId: user.uid, accountId: newAccountId, type: s.type,
+          amount: s.amount, currency: s.currency, description: s.description,
+          categoryId: newCategoryId, tags: newTags,
+          nextDate: ts(s.nextDate) ?? Timestamp.now(),
+          recurrence: s.recurrence, isActive: s.isActive ?? true,
+          ...(s.fee !== undefined && { fee: s.fee }),
+          ...(s.endDate && { endDate: ts(s.endDate) }),
+          ...(s.lastExecutedAt && { lastExecutedAt: ts(s.lastExecutedAt) }),
+          createdAt: ts(s.createdAt) ?? Timestamp.now(),
+          updatedAt: ts(s.updatedAt) ?? Timestamp.now(),
+        });
+      }
+
+      console.log('[import] restoring user settings...');
+      if (d.userSettings?.baseCurrency) {
+        await userSettingsRepository.update(user.uid, { baseCurrency: d.userSettings.baseCurrency });
+      }
+
+      alert('Data imported successfully.');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to import data:', error);
+      alert('Failed to import data. Please check the backup file and try again.');
+    } finally {
+      setClearing(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -350,6 +620,40 @@ export default function ProfilePage() {
             <CardTitle className="text-sm text-destructive">Dev Panel</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImportData(file);
+                e.target.value = '';
+              }}
+            />
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-blue-400 hover:text-blue-400 border-blue-400/50"
+              onClick={handleExportData}
+              disabled={exporting || clearing}
+            >
+              <DatabaseBackup className="h-4 w-4 mr-2" />
+              {exporting ? 'Exporting...' : 'Export All Data'}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full text-blue-400 hover:text-blue-400 border-blue-400/50"
+              onClick={() => importFileRef.current?.click()}
+              disabled={clearing || exporting}
+            >
+              <HardDriveUpload className="h-4 w-4 mr-2" />
+              Import All Data
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
