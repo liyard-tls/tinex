@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import PageLoader from "@/shared/components/ui/PageLoader";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import { useAuth } from "@/app/_providers/AuthProvider";
 import { useAppData } from "@/app/_providers/AppDataProvider";
@@ -300,16 +301,7 @@ function ImportPageContent() {
     parsedTransactions,
   ]);
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-2xl mx-auto p-4 pb-20">
-          <p className="text-center text-muted-foreground">Loading...</p>
-        </div>
-        <BottomNav />
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader />;
 
   return (
     <div className="min-h-screen bg-background pb-20">

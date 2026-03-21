@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import BottomNav from "@/shared/components/layout/BottomNav";
+import PageLoader from "@/shared/components/ui/PageLoader";
 import PageHeader from "@/shared/components/layout/PageHeader";
 import {
   Card,
@@ -380,16 +381,7 @@ export default function TransferAnalyticsPage() {
   );
 
   // ── Loading / auth ────────────────────────────────────────────────────────
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader />;
 
   if (!user) return null;
 

@@ -7,7 +7,8 @@ import { Card, CardContent, CardTitle, CardDescription } from '@/shared/componen
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
-import { Plus, Tag as TagIcon, Trash2, Edit, Loader2 } from 'lucide-react';
+import { Plus, Tag as TagIcon, Trash2, Edit } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { tagRepository } from '@/core/repositories/TagRepository';
 import { Tag, CreateTagInput, TAG_COLORS } from '@/core/models';
 import { useAuth } from '@/app/_providers/AuthProvider';
@@ -57,16 +58,7 @@ export default function TagsPage() {
     }
   };
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader />;
 
   if (!user) return null;
 

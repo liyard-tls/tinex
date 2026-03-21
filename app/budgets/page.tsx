@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import BottomNav from '@/shared/components/layout/BottomNav';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import Modal from '@/shared/components/ui/Modal';
-import { Plus, Clock, FolderOpen, Loader2 } from 'lucide-react';
+import { Plus, Clock, FolderOpen } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { Budget, BudgetProgress, Currency } from '@/core/models';
 import { budgetRepository } from '@/core/repositories/BudgetRepository';
 import BudgetList from '@/modules/budgets/BudgetList';
@@ -105,16 +106,7 @@ export default function BudgetsPage() {
     );
   };
 
-  if (authLoading || dataLoading || budgetsLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading || budgetsLoading) return <PageLoader />;
 
   if (!user) return null;
 

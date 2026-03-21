@@ -63,14 +63,69 @@ export default function BottomNav() {
     return () => document.removeEventListener('openSideMenu', handler);
   }, []);
 
-  const handleNavClick = (targetHref: string, targetIndex: number) => {
-    if (currentIndex === -1 || currentIndex === targetIndex) return;
+  // Debug: watch data-swipe attribute and <main> presence together
+  useEffect(() => {
+    let swipeSetAt: number | null = null;
+
+    const attrObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type === 'attributes' && m.attributeName === 'data-swipe') {
+          const val = document.documentElement.getAttribute('data-swipe');
+          const mainEl = document.querySelector('main');
+          if (val) {
+            swipeSetAt = Date.now();
+            console.log(`[Nav:observer] data-swipe="${val}" SET — main present: ${!!mainEl}`);
+          } else {
+            const elapsed = swipeSetAt ? Date.now() - swipeSetAt : '?';
+            const mainEl2 = document.querySelector('main');
+            console.log(`[Nav:observer] data-swipe REMOVED after ${elapsed}ms — main present: ${!!mainEl2}`);
+            swipeSetAt = null;
+          }
+        }
+      }
+    });
+
+    attrObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-swipe'] });
+
+    // Also watch for <main> appearing/disappearing during a swipe
+    const domObserver = new MutationObserver(() => {
+      const swipe = document.documentElement.getAttribute('data-swipe');
+      if (!swipe) return;
+      const mainEl = document.querySelector('main');
+      console.log(`[Nav:observer] DOM changed while data-swipe="${swipe}" — main present: ${!!mainEl}`);
+    });
+
+    domObserver.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      attrObserver.disconnect();
+      domObserver.disconnect();
+    };
+  }, []);
+
+  const handleNavClick = (e: React.MouseEvent, targetHref: string, targetIndex: number) => {
+    console.log(`[Nav] click: from="${navItems[currentIndex]?.href ?? 'unknown'}(${currentIndex})" to="${targetHref}(${targetIndex})" pathname="${pathname}"`);
+    if (currentIndex === -1 || currentIndex === targetIndex) {
+      console.log(`[Nav] skipped: currentIndex=${currentIndex}, targetIndex=${targetIndex}`);
+      return;
+    }
+    e.preventDefault();
     const direction = targetIndex > currentIndex ? 'left' : 'right';
+    console.log(`[Nav] navigating direction="${direction}" pushing to="${targetHref}"`);
     window.scrollTo({ top: 0, behavior: 'instant' });
     document.documentElement.setAttribute('data-swipe', direction);
+    console.log(`[Nav] data-swipe="${direction}" set on <html>`);
     router.push(targetHref);
-    setTimeout(() => document.documentElement.removeAttribute('data-swipe'), 350);
+    setTimeout(() => {
+      console.log(`[Nav] removing data-swipe, pathname now="${window.location.pathname}"`);
+      document.documentElement.removeAttribute('data-swipe');
+    }, 350);
   };
+
+  // Log every pathname change as React sees it
+  useEffect(() => {
+    console.log(`[Nav] pathname changed to "${pathname}", currentIndex=${currentIndex}`);
+  }, [pathname, currentIndex]);
 
   return (
     <>
@@ -95,7 +150,7 @@ export default function BottomNav() {
                 key={item.href}
                 href={item.href}
                 ref={(el) => { itemRefs.current[index] = el; }}
-                onClick={() => handleNavClick(item.href, index)}
+                onClick={(e) => handleNavClick(e, item.href, index)}
                 className={cn(
                   'relative flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors duration-200',
                   'active:scale-95',

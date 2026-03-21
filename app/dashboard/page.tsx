@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus, LogOut, Wallet, TrendingUp, TrendingDown, Upload, Loader2, ArrowUpRight, ArrowRightLeft } from "lucide-react";
+import PageLoader from '@/shared/components/ui/PageLoader';
 import UpcomingTransactionsWidget from "@/modules/transactions/UpcomingTransactionsWidget";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -247,16 +248,7 @@ export default function DashboardPage() {
     await signOut();
   };
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader message="Loading dashboard..." />;
 
   if (!user) return null;
 

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/sheet';
 import TransactionListItem from '@/shared/components/ui/TransactionListItem';
 import { Filter, X, MoreHorizontal, Loader2 } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
 import { Transaction, SYSTEM_CATEGORIES } from '@/core/models';
 import { CATEGORY_ICONS } from '@/shared/config/icons';
@@ -118,16 +119,7 @@ function TransactionsContent() {
     {} as Record<string, Transaction[]>
   );
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading transactions...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader message="Loading transactions..." />;
 
   if (!user) return null;
 

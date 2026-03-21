@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BottomNav from '@/shared/components/layout/BottomNav';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { useAuth } from '@/app/_providers/AuthProvider';
 import { useAppData } from '@/app/_providers/AppDataProvider';
 import PageHeader from '@/shared/components/layout/PageHeader';
@@ -619,16 +620,7 @@ function AnalyticsContent() {
   }, [chartKey]);
 
   if (authLoading || dataLoading || calculatingStats) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
-          <p className="text-sm text-muted-foreground">
-            {calculatingStats ? 'Converting currencies...' : 'Loading...'}
-          </p>
-        </div>
-      </div>
-    );
+    return <PageLoader message={calculatingStats ? 'Converting currencies...' : 'Loading...'} />;
   }
 
   if (!user) return null;

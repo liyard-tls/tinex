@@ -1,5 +1,6 @@
 'use client';
-import { MoreHorizontal, Plus, Wallet, ArrowRight, Tag as TagIcon, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Wallet, ArrowRight, Tag as TagIcon } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -39,16 +40,7 @@ export default function AccountsPage() {
     }
   };
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader />;
 
   if (!user) return null;
 

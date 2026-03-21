@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import FAB from '@/shared/components/ui/FAB';
-import { Plus, Trash2, Edit, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit, MoreHorizontal } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import { categoryRepository } from '@/core/repositories/CategoryRepository';
 import { Category, CreateCategoryInput, CategoryType, SYSTEM_CATEGORIES } from '@/core/models';
 import { CATEGORY_ICONS, ICON_OPTIONS } from '@/shared/config/icons';
@@ -74,16 +75,7 @@ export default function CategoriesPage() {
     }
   };
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  if (authLoading || dataLoading) return <PageLoader />;
 
   if (!user) return null;
 

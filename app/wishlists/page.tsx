@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui
 import { Button } from '@/shared/components/ui';
 import Modal from '@/shared/components/ui/Modal';
 import AddWishlistForm from '@/modules/wishlists/AddWishlistForm';
-import { Plus, ChevronDown, Loader2 } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
+import PageLoader from '@/shared/components/ui/PageLoader';
 import PageHeader from '@/shared/components/layout/PageHeader';
 import { wishlistRepository } from '@/core/repositories/WishlistRepository';
 import { wishlistItemRepository } from '@/core/repositories/WishlistItemRepository';
@@ -93,16 +94,7 @@ export default function WishlistsPage() {
     setExpandedWishlists(newExpanded);
   };
 
-  if (authLoading || dataLoading || wishlistsLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="container max-w-2xl mx-auto p-4 pb-20 flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-        <BottomNav />
-      </div>
-    );
-  }
+  if (authLoading || dataLoading || wishlistsLoading) return <PageLoader />;
 
   const userCurrency = userSettings?.baseCurrency || 'USD';
   const currencySymbol = getCurrencySymbol(userCurrency);
