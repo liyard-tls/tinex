@@ -6,6 +6,10 @@ let exchangeRatesCache: {
   expiresAt: number;
 } | null = null;
 
+// In-flight request deduplication — prevents race condition when multiple
+// concurrent callers all see an empty cache and each launch a fetch
+let pendingFetch: Promise<Record<string, number>> | null = null;
+
 /**
  * Fetches exchange rates from our Next.js API route
  * The API route handles the CurrencyFreaks API call server-side
@@ -17,33 +21,40 @@ async function fetchExchangeRates(): Promise<Record<string, number>> {
     return exchangeRatesCache.rates;
   }
 
-  try {
-    // Call our Next.js API route instead of external API directly
-    const response = await fetch("/api/currency");
+  // Reuse in-flight request if one is already pending
+  if (pendingFetch) return pendingFetch;
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch exchange rates from API");
+  pendingFetch = (async () => {
+    try {
+      // Call our Next.js API route instead of external API directly
+      const response = await fetch("/api/currency");
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch exchange rates from API");
+      }
+
+      const data = await response.json();
+
+      if (!data.success || !data.rates) {
+        throw new Error("Invalid response from currency API");
+      }
+
+      // Cache until the provider's next update (passed from the API route)
+      exchangeRatesCache = {
+        rates: data.rates,
+        expiresAt: data.expiresAt ?? Date.now() + 3600000,
+      };
+
+      return data.rates;
+    } catch (error) {
+      console.error("Failed to fetch exchange rates:", error);
+      return getFallbackRates();
+    } finally {
+      pendingFetch = null;
     }
+  })();
 
-    const data = await response.json();
-
-    if (!data.success || !data.rates) {
-      throw new Error("Invalid response from currency API");
-    }
-
-    // Cache until the provider's next update (passed from the API route)
-    exchangeRatesCache = {
-      rates: data.rates,
-      expiresAt: data.expiresAt ?? Date.now() + 3600000,
-    };
-
-    return data.rates;
-  } catch (error) {
-    console.error("Failed to fetch exchange rates:", error);
-
-    // Return fallback rates if API fails
-    return getFallbackRates();
-  }
+  return pendingFetch;
 }
 
 /**

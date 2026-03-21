@@ -5,7 +5,7 @@
 
 import { Budget, BudgetProgress, Currency } from '@/core/models';
 import { transactionRepository } from '@/core/repositories/TransactionRepository';
-import { convertCurrency } from '@/shared/services/currencyService';
+import { convertMultipleCurrencies } from '@/shared/services/currencyService';
 import { getCurrentPeriodDates } from './budgetUtils';
 
 /**
@@ -32,22 +32,11 @@ export async function calculateBudgetProgress(
     (t) => t.categoryId === budget.categoryId && t.type === 'expense'
   );
 
-  // Calculate total spent (convert to budget currency if needed)
-  let totalSpent = 0;
-
-  for (const transaction of categoryTransactions) {
-    if (transaction.currency === userCurrency) {
-      totalSpent += transaction.amount;
-    } else {
-      // Convert transaction amount to user currency
-      const converted = await convertCurrency(
-        transaction.amount,
-        transaction.currency,
-        userCurrency
-      );
-      totalSpent += converted;
-    }
-  }
+  // Calculate total spent (convert all to user currency in a single fetch)
+  const totalSpent = await convertMultipleCurrencies(
+    categoryTransactions.map((t) => ({ amount: t.amount, currency: t.currency })),
+    userCurrency
+  );
 
   // Calculate progress
   const percentage = Math.round((totalSpent / budget.amount) * 100);
