@@ -40,14 +40,14 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     queryKey: QUERY_KEYS.transactions(uid ?? ''),
     queryFn: () => transactionRepository.getByUserId(uid!),
     enabled: !!uid,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   const { data: accounts = [], isLoading: accLoading } = useQuery({
     queryKey: QUERY_KEYS.accounts(uid ?? ''),
     queryFn: () => accountRepository.getByUserId(uid!),
     enabled: !!uid,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   const { data: categories = [], isLoading: catLoading } = useQuery({
@@ -61,28 +61,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       return cats;
     },
     enabled: !!uid,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
   const { data: tags = [], isLoading: tagLoading } = useQuery({
     queryKey: QUERY_KEYS.tags(uid ?? ''),
     queryFn: () => tagRepository.getByUserId(uid!),
     enabled: !!uid,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
   const { data: userSettings = null, isLoading: settingsLoading } = useQuery({
     queryKey: QUERY_KEYS.userSettings(uid ?? ''),
     queryFn: () => userSettingsRepository.getOrCreate(uid!),
     enabled: !!uid,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 0,
   });
 
   const { data: scheduledTransactions = [], isLoading: schedLoading } = useQuery({
     queryKey: QUERY_KEYS.scheduledTransactions(uid ?? ''),
     queryFn: () => scheduledTransactionRepository.getByUserId(uid!),
     enabled: !!uid,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,
   });
 
   // True only on first load (no cached data yet); false instantly when cache is warm
