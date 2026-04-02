@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -41,6 +41,14 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoa
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [existingTransactions, setExistingTransactions] = useState<Transaction[]>([]);
   const [categoryManuallySelected, setCategoryManuallySelected] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedTime, setSelectedTime] = useState<string>(new Date().toTimeString().slice(0, 5));
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
+
+  // Imperatively sync date/time DOM value after submit reset
+  useEffect(() => { if (dateInputRef.current) dateInputRef.current.value = selectedDate; }, [selectedDate]);
+  useEffect(() => { if (timeInputRef.current) timeInputRef.current.value = selectedTime; }, [selectedTime]);
 
   const {
     register,
@@ -72,15 +80,15 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoa
     return () => unsubscribe();
   }, []);
 
-  // Set default account
+  // Set default account only on initial mount (no account selected yet)
   useEffect(() => {
-    if (accounts.length > 0) {
-      const defaultAccount = accounts.find((acc) => acc.isDefault) || accounts[0];
+    if (accounts.length > 0 && !selectedAccountId) {
+      const defaultAccount = accounts[0];
       setSelectedAccountId(defaultAccount.id);
       setSelectedCurrency(defaultAccount.currency);
       setValue('accountId', defaultAccount.id);
     }
-  }, [accounts, setValue]);
+  }, [accounts, selectedAccountId, setValue]);
 
   const handleAccountChange = (accountId: string) => {
     setSelectedAccountId(accountId);
@@ -155,22 +163,23 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoa
       // Show success message (Toast component handles auto-close)
       setSuccessMessage('Transaction added successfully!');
 
-      // Reset form but keep account selected
+      // Preserve account and date/time; reset everything else
       const currentAccount = selectedAccountId;
       const currentCurrency = selectedCurrency;
+      const currentDate = data.date as string;
+      const currentTime = (data.time as string) || selectedTime;
       reset();
       setSelectedTags([]);
       setSelectedCategoryId('');
       setCategoryManuallySelected(false);
       setSelectedAccountId(currentAccount);
       setSelectedCurrency(currentCurrency);
+      setSelectedDate(currentDate);
+      setSelectedTime(currentTime);
       setValue('accountId', currentAccount);
-
-      // Set default date and time for next transaction
-      // Note: form expects string format for date input, but type expects Date
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setValue('date', new Date().toISOString().split('T')[0] as any);
-      setValue('time', new Date().toTimeString().slice(0, 5));
+      setValue('date', currentDate as any);
+      setValue('time', currentTime);
 
       // Reload transactions for better category suggestions
       const currentUser = auth.currentUser;
@@ -427,7 +436,17 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoa
           <Input
             type="date"
             {...register('date', { required: 'Date is required' })}
-            defaultValue={new Date().toISOString().split('T')[0]}
+            ref={(el) => {
+              register('date').ref(el);
+              (dateInputRef as { current: HTMLInputElement | null }).current = el;
+            }}
+            defaultValue={selectedDate}
+            onBlur={(e) => {
+              if (e.target.value) {
+                setSelectedDate(e.target.value);
+                setValue('date', e.target.value as any);
+              }
+            }}
             error={errors.date?.message}
             disabled={loading}
           />
@@ -437,7 +456,17 @@ export default function AddTransactionForm({ onSubmit, onCancel, accounts, onLoa
           <Input
             type="time"
             {...register('time')}
-            defaultValue={new Date().toTimeString().slice(0, 5)}
+            ref={(el) => {
+              register('time').ref(el);
+              (timeInputRef as { current: HTMLInputElement | null }).current = el;
+            }}
+            defaultValue={selectedTime}
+            onBlur={(e) => {
+              if (e.target.value) {
+                setSelectedTime(e.target.value);
+                setValue('time', e.target.value);
+              }
+            }}
             disabled={loading}
           />
         </div>
