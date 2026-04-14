@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS accounts (
   id          TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
-  type        TEXT NOT NULL CHECK (type IN ('cash','bank_account','credit_card','investment','savings','other')),
+  type        TEXT NOT NULL CHECK (type IN ('cash','bank','credit_card','investment','savings','other')),
   currency    TEXT NOT NULL,
   balance     NUMERIC(20,8) NOT NULL DEFAULT 0,
   color       TEXT,

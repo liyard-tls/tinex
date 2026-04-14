@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { QueryClient } from '@tanstack/react-query';
 import { auth } from '@/lib/firebase';
+import { apiFetch } from '@/core/api/client';
 
 interface AuthUser {
   uid: string;
@@ -31,8 +32,22 @@ export function AuthProvider({ children, queryClient }: AuthProviderProps) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Upsert user row in PostgreSQL before any other API calls fire.
+        // All other tables (settings, categories, accounts…) have a FK on users(id).
+        try {
+          await apiFetch('/api/v1/users', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: firebaseUser.email ?? '',
+              displayName: firebaseUser.displayName ?? '',
+              photoUrl: firebaseUser.photoURL ?? '',
+            }),
+          });
+        } catch (e) {
+          console.error('[AuthProvider] user upsert failed', e);
+        }
         setUser({
           uid: firebaseUser.uid,
           email: firebaseUser.email || '',

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -43,6 +44,7 @@ func (h *AccountHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	account, err := h.repo.Create(r.Context(), userID, input)
 	if err != nil {
+		log.Printf("create account: %v", err)
 		respondError(w, http.StatusInternalServerError, "failed to create account")
 		return
 	}

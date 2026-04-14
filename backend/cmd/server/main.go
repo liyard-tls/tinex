@@ -31,15 +31,19 @@ func main() {
 	defer db.Close()
 	log.Println("connected to database")
 
+	// Migrations
+	if err := appdb.Migrate(os.Getenv("DATABASE_URL"), ""); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+	log.Println("migrations applied")
+
 	// Firebase Auth
 	var firebaseApp *firebase.App
-	credFile := os.Getenv("FIREBASE_CREDENTIALS_FILE")
-	if credFile != "" {
-		firebaseApp, err = firebase.NewApp(ctx, nil, option.WithCredentialsFile(credFile))
-	} else {
-		// Falls back to GOOGLE_APPLICATION_CREDENTIALS env var
-		firebaseApp, err = firebase.NewApp(ctx, nil)
+	credJSON := os.Getenv("FIREBASE_CREDENTIALS_JSON")
+	if credJSON == "" {
+		log.Fatal("FIREBASE_CREDENTIALS_JSON environment variable is not set")
 	}
+	firebaseApp, err = firebase.NewApp(ctx, nil, option.WithCredentialsJSON([]byte(credJSON)))
 	if err != nil {
 		log.Fatalf("firebase init: %v", err)
 	}
