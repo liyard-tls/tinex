@@ -1,0 +1,16 @@
+DROP TABLE IF EXISTS imported_transactions;
+DROP TABLE IF EXISTS chat_messages;
+DROP TABLE IF EXISTS analytics_preset_categories;
+DROP TABLE IF EXISTS analytics_presets;
+DROP TABLE IF EXISTS wishlist_items;
+DROP TABLE IF EXISTS wishlists;
+DROP TABLE IF EXISTS scheduled_transaction_tags;
+DROP TABLE IF EXISTS scheduled_transactions;
+DROP TABLE IF EXISTS budgets;
+DROP TABLE IF EXISTS transaction_tags;
+DROP TABLE IF EXISTS transactions;
+DROP TABLE IF EXISTS tags;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS user_settings;
+DROP TABLE IF EXISTS users;
